@@ -25,7 +25,10 @@
 
       <p class="mt-6 text-3xl font-semibold text-primary">${{ product.price|intcomma }}</p>
 
-      <div class="mt-4">
+      <div class="mt-4 flex flex-wrap gap-2">
+        {% if product.is_featured %}
+          <span class="badge badge-primary">Featured</span>
+        {% endif %}
         {% if product.is_available %}
           <span class="badge badge-success badge-outline">In stock</span>
         {% else %}

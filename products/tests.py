@@ -89,6 +89,27 @@ def test_detail_unknown_slug_404(client, db):
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
+@pytest.mark.parametrize("page_name", ["catalog", "category", "detail"])
+@pytest.mark.parametrize("is_featured", [True, False])
+@pytest.mark.parametrize("is_available", [True, False])
+def test_featured_badge(client, product, page_name, is_featured, is_available):
+    product.is_featured = is_featured
+    product.is_available = is_available
+    product.save(update_fields=["is_featured", "is_available"])
+    urls = {
+        "catalog": reverse("products:catalog"),
+        "category": product.category.get_absolute_url(),
+        "detail": product.get_absolute_url(),
+    }
+
+    response = client.get(urls[page_name])
+
+    assert response.status_code == HTTPStatus.OK
+    page = response.content.decode()
+    assert product.name in page
+    assert ('<span class="badge badge-primary">Featured</span>' in page) == is_featured
+
+
 def test_detail_shows_availability(client, unavailable_product):
     response = client.get(unavailable_product.get_absolute_url())
 
