@@ -12,6 +12,7 @@ class ProductInputs(HTMLParser):
         super().__init__()
         self.inputs = {}
         self.label_targets = []
+        self.labels = {}
         self.feed(content.decode())
 
     def handle_starttag(self, tag, attrs):
@@ -20,6 +21,7 @@ class ProductInputs(HTMLParser):
             self.inputs[attrs["value"]] = attrs
         if tag == "label" and "for" in attrs:
             self.label_targets.append(attrs["for"])
+            self.labels[attrs["for"]] = attrs
 
 
 def test_new_coupon_has_individually_labelled_product_checkboxes(
@@ -58,6 +60,8 @@ def test_multiple_selections_save_and_survive_invalid_edit(
     edit_url = reverse("orders:edit_coupon", args=[coupon.pk])
     parsed = ProductInputs(client.get(edit_url).content)
     assert all("checked" in attrs for attrs in parsed.inputs.values())
+    for attrs in parsed.inputs.values():
+        assert "bg-primary/15" in parsed.labels[attrs["id"]]["class"]
 
     # A validation error must retain the staff member's changed selection.
     response = client.post(edit_url, {**data, "percentage": 101, "products": [product.pk]})
@@ -66,6 +70,8 @@ def test_multiple_selections_save_and_survive_invalid_edit(
     parsed = ProductInputs(response.content)
     assert "checked" in parsed.inputs[str(product.pk)]
     assert "checked" not in parsed.inputs[str(unavailable_product.pk)]
+    assert "bg-primary/15" in parsed.labels[parsed.inputs[str(product.pk)]["id"]]["class"]
+    assert "bg-primary/15" not in parsed.labels[parsed.inputs[str(unavailable_product.pk)]["id"]]["class"]
     assert coupon.products.count() == 2
 
     assert client.post(edit_url, {**data, "products": [product.pk]}).status_code == 302
