@@ -18,6 +18,11 @@ class CartAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
+    readonly_fields = ("product", "product_name", "unit_price", "quantity", "discount")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Order)
@@ -27,3 +32,9 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "shipping_name")
     date_hierarchy = "created_at"
     inlines = [OrderItemInline]
+    readonly_fields = tuple(
+        field.name for field in Order._meta.fields if field.name != "status"
+    )
+
+    def has_add_permission(self, request):
+        return False

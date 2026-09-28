@@ -1,0 +1,33 @@
+{% extends "backoffice/base.html" %}
+{% block title %}Coupons — Back office{% endblock %}
+{% block backoffice %}
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h2 class="text-2xl font-bold">Coupons</h2>
+    <a href="{% url 'orders:create_coupon' %}" class="btn btn-primary">New coupon</a>
+  </div>
+  <p class="mt-2 opacity-70">Promotions expire after their end date in Central time. Retiring or editing a coupon never changes past orders.</p>
+  {% if coupons %}
+    <div class="mt-6 overflow-x-auto rounded-box bg-base-100">
+      <table class="table">
+        <thead><tr><th>Code</th><th>Discount</th><th>Applies to</th><th>Valid through (Central time)</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for coupon in coupons %}
+            <tr>
+              <td class="font-mono font-semibold">{{ coupon.code }}</td>
+              <td>{{ coupon.percentage }}%</td><td>{{ coupon.get_scope_display }}</td>
+              <td>{{ coupon.end_date|date:"M j, Y" }}</td>
+              <td><span class="badge">{{ coupon.status }}</span></td>
+              <td><a class="btn btn-ghost btn-sm" href="{% url 'orders:edit_coupon' coupon.pk %}">Edit / retire</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card mt-6 bg-base-100"><div class="card-body items-center py-12 text-center">
+      <h3 class="card-title">No coupons yet</h3>
+      <p>Create a seasonal promotion for the whole order or selected products.</p>
+      <a class="btn btn-primary mt-3" href="{% url 'orders:create_coupon' %}">Create your first coupon</a>
+    </div></div>
+  {% endif %}
+{% endblock %}

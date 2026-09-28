@@ -105,7 +105,14 @@ def test_checkout_page_shows_the_form_and_the_cart(client, customer, cart_item):
 def test_a_valid_checkout_places_the_order(client, customer, cart_item):
     client.force_login(customer)
 
-    response = client.post(reverse("orders:checkout"), VALID_DATA)
+    preview = client.get(reverse("orders:checkout"))
+    response = client.post(
+        reverse("orders:checkout"),
+        {
+            **VALID_DATA,
+            "pricing_snapshot": preview.context["pricing_snapshot"],
+        },
+    )
 
     order = Order.objects.get()
     assert response.status_code == HTTPStatus.FOUND
@@ -119,6 +126,8 @@ def test_an_invalid_checkout_preserves_input_and_places_nothing(
     bad = {**VALID_DATA, "card_number": "4242 4242 4242 4241"}
     client.force_login(customer)
 
+    preview = client.get(reverse("orders:checkout"))
+    bad["pricing_snapshot"] = preview.context["pricing_snapshot"]
     response = client.post(reverse("orders:checkout"), bad)
 
     assert response.status_code == HTTPStatus.OK

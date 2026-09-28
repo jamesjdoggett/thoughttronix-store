@@ -5,6 +5,21 @@ from . import views
 app_name = "orders"
 
 urlpatterns = [
+    path(
+        "backoffice/coupons/",
+        views.ManageCouponListView.as_view(),
+        name="manage_coupons",
+    ),
+    path(
+        "backoffice/coupons/new/",
+        views.ManageCouponCreateView.as_view(),
+        name="create_coupon",
+    ),
+    path(
+        "backoffice/coupons/<int:pk>/",
+        views.ManageCouponUpdateView.as_view(),
+        name="edit_coupon",
+    ),
     path("cart/", views.CartView.as_view(), name="cart"),
     path("cart/add/<int:pk>/", views.AddToCartView.as_view(), name="add"),
     path(

@@ -9,8 +9,12 @@ and no ``clean()`` — none of its current rules need imperative validation.
 
 from django import forms
 from django.core.validators import RegexValidator
+from django.db import transaction
 
-from .models import Order
+from products.forms import StyledModelForm
+from products.models import Product
+
+from .models import Coupon, Order
 from .validators import validate_card_number, validate_expiry
 
 US_STATES = [
@@ -108,8 +112,11 @@ class CheckoutForm(forms.Form):
     )
     card_cvv = forms.CharField(label="CVV", max_length=4, validators=[cvv_validator])
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, payment_required=True, **kwargs):
         super().__init__(*args, **kwargs)
+        if not payment_required:
+            for name in ("card_number", "card_expiry", "card_cvv"):
+                self.fields.pop(name)
         for field in self.fields.values():
             widget = field.widget
             if isinstance(widget, forms.Select):
@@ -140,3 +147,59 @@ class OrderStatusForm(forms.ModelForm):
         model = Order
         fields = ["status"]
         widgets = {"status": forms.Select(attrs={"class": "select"})}
+
+
+class CouponCodeForm(forms.Form):
+    """Normalize customer input before looking up a promotion."""
+
+    code = forms.CharField(max_length=30)
+
+    def clean_code(self):
+        code = Coupon.normalize_code(self.cleaned_data["code"])
+        Coupon._meta.get_field("code").run_validators(code)
+        return code
+
+
+class CouponForm(StyledModelForm):
+    """Marketing owns promotion terms; the public code stays fixed."""
+
+    class Meta:
+        model = Coupon
+        fields = ["code", "percentage", "scope", "products", "end_date", "is_active"]
+        widgets = {
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+            "products": forms.CheckboxSelectMultiple,
+        }
+        help_texts = {
+            "products": "Check one or more products for Selected products. Whole order ignores this selection.",
+            "is_active": "Activate when ready. Uncheck to retire; existing orders never change.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Each choice is a checkbox, not a DaisyUI single-select or text input.
+        self.fields["products"].widget.attrs["class"] = (
+            "checkbox checkbox-primary mt-0.5 shrink-0"
+        )
+        if self.instance.pk:
+            self.fields["code"].disabled = True
+            self.fields[
+                "code"
+            ].help_text = (
+                "Codes cannot be renamed. Create a new coupon to use a different code."
+            )
+
+    def clean_code(self):
+        return Coupon.normalize_code(self.cleaned_data["code"])
+
+    def clean(self):
+        data = super().clean()
+        if data.get("scope") == Coupon.Scope.PRODUCTS and not data.get("products"):
+            self.add_error("products", "Select at least one eligible product.")
+        return data
+
+    @transaction.atomic
+    def save(self, commit=True):
+        if self.cleaned_data.get("scope") == Coupon.Scope.ORDER:
+            self.cleaned_data["products"] = Product.objects.none()
+        return super().save(commit=commit)

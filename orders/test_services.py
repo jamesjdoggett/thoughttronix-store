@@ -124,7 +124,8 @@ def test_a_failure_midway_leaves_no_partial_order(
     assert CartItem.objects.count() == 2
 
 
-def test_the_coupon_seam_is_accepted_and_ignored(cart, cart_item, checkout_data):
-    order = place_order(cart, cart.user, checkout_data, coupon_code="THOUGHTS10")
-
-    assert order.total == Decimal("699.98")
+def test_an_unknown_coupon_is_rejected(cart, cart_item, checkout_data):
+    with pytest.raises(ValueError, match="not found"):
+        place_order(cart, cart.user, checkout_data, coupon_code="THOUGHTS10")
+    assert not Order.objects.exists()
+    assert cart.items.exists()

@@ -96,7 +96,7 @@ def top_products(since: datetime | None = None, *, limit: int = 5) -> list[dict]
         items.values("product_name")
         .annotate(
             revenue=Sum(
-                F("unit_price") * F("quantity"),
+                F("unit_price") * F("quantity") - F("discount"),
                 output_field=DecimalField(max_digits=12, decimal_places=2),
             ),
             units=Sum("quantity"),

@@ -1,0 +1,72 @@
+{% load humanize %}
+<div id="checkout-panel" aria-live="polite">
+  <form method="post" action="{% url 'orders:checkout' %}" class="mt-6 grid gap-8 lg:grid-cols-3">
+    {% csrf_token %}
+    <input type="hidden" name="pricing_snapshot" value="{{ pricing_snapshot }}">
+    <div class="space-y-6 lg:col-span-2">
+      {% if checkout_error %}<div class="alert alert-error" role="alert">{{ checkout_error }}</div>{% endif %}
+      {% for error in form.non_field_errors %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endfor %}
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Contact</h2>
+        {% include "orders/partials/_field.html" with field=form.email %}
+      </div></section>
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Shipping address</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in form.shipping_fields %}{% include "orders/partials/_field.html" %}{% endfor %}
+        </div>
+      </div></section>
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Billing address</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in form.billing_fields %}{% include "orders/partials/_field.html" %}{% endfor %}
+        </div>
+      </div></section>
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Payment</h2>
+        {% if quote.total %}
+          <p class="text-sm opacity-70">We keep only the last four digits. The rest we simply remember.</p>
+          <div class="grid gap-4 sm:grid-cols-2">
+            {% for field in form.card_fields %}{% include "orders/partials/_field.html" %}{% endfor %}
+          </div>
+        {% else %}<p>No payment required.</p>{% endif %}
+      </div></section>
+      <button type="submit" name="action" value="place" class="btn btn-primary w-full" {% if coupon_error %}disabled{% endif %}>
+        Place order — ${{ quote.total|floatformat:2|intcomma }}
+      </button>
+    </div>
+    <aside class="space-y-4">
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Discount code</h2>
+        <label class="label" for="coupon-code">One code per order</label>
+        <input id="coupon-code" class="input w-full" name="coupon_code" value="{{ coupon_input }}" maxlength="30" autocomplete="off" aria-describedby="coupon-feedback">
+        <div class="flex gap-2">
+          <button type="submit" name="action" value="apply" formnovalidate class="btn btn-secondary"
+                  hx-post="{% url 'orders:checkout' %}" hx-vals='{"action":"apply"}' hx-include="closest form" hx-target="#checkout-panel" hx-swap="outerHTML">Apply</button>
+          <button type="submit" name="action" value="remove" formnovalidate class="btn btn-ghost"
+                  hx-post="{% url 'orders:checkout' %}" hx-vals='{"action":"remove"}' hx-include="closest form" hx-target="#checkout-panel" hx-swap="outerHTML">Remove</button>
+        </div>
+        <div id="coupon-feedback">
+          {% if coupon_error %}<p class="text-error" role="alert">{{ coupon_error }}</p>
+          {% elif quote.coupon %}<p class="text-success">{{ quote.coupon.code }} applied: {{ quote.coupon.percentage }}% off {% if quote.coupon.scope == 'PRODUCTS' %}selected products{% else %}the whole order{% endif %}.</p>{% endif %}
+        </div>
+      </div></section>
+      <section class="card bg-base-100 shadow-md"><div class="card-body">
+        <h2 class="card-title">Your order</h2>
+        <ul class="space-y-3">
+          {% for line in quote.lines %}
+            <li class="text-sm">
+              <div class="flex justify-between gap-3"><span>{{ line.item.quantity }} × {{ line.item.product.name }}</span><span>${{ line.subtotal|floatformat:2|intcomma }}</span></div>
+              {% if line.discount %}<p class="text-right text-success">Discount: −${{ line.discount|floatformat:2|intcomma }}</p>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+        <div class="divider my-2"></div>
+        <p class="flex justify-between"><span>Subtotal</span><span>${{ quote.subtotal|floatformat:2|intcomma }}</span></p>
+        <p class="flex justify-between"><span>Discount</span><span>−${{ quote.discount|floatformat:2|intcomma }}</span></p>
+        <p class="flex justify-between font-bold"><span>Total</span><span class="text-primary">${{ quote.total|floatformat:2|intcomma }}</span></p>
+        <a href="{% url 'orders:cart' %}" class="link link-hover text-sm opacity-70">Edit cart</a>
+      </div></section>
+    </aside>
+  </form>
+</div>

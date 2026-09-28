@@ -1,0 +1,23 @@
+{% extends "backoffice/base.html" %}
+{% block title %}Manage coupon — Back office{% endblock %}
+{% block backoffice %}
+  <div class="card mx-auto max-w-2xl bg-base-100 shadow-md"><div class="card-body">
+    <h2 class="card-title">{% if form.instance.pk %}Edit {{ form.instance.code }}{% else %}New coupon{% endif %}</h2>
+    <p class="text-sm opacity-70">One code per order. Customers may reuse it while active. Percentage discounts apply to every unit of eligible products.</p>
+    <form method="post" class="mt-2 space-y-4">
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<p class="text-error" role="alert">{{ error }}</p>{% endfor %}
+      {% for field in form %}
+        {% if field.name == 'products' %}
+          {% include "orders/partials/_coupon_products.html" %}
+        {% else %}
+          {% include "products/partials/_field.html" %}
+        {% endif %}
+      {% endfor %}
+      <div class="flex justify-end gap-2">
+        <a class="btn btn-ghost" href="{% url 'orders:manage_coupons' %}">Cancel</a>
+        <button class="btn btn-primary" type="submit">Save coupon</button>
+      </div>
+    </form>
+  </div></div>
+{% endblock %}

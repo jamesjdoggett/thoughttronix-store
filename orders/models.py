@@ -1,10 +1,113 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
+from django.db.models.functions import Upper
 from django.utils import timezone
 
 from products.models import Product
+
+
+class Coupon(models.Model):
+    """A reusable promotion; orders store their own purchase-time snapshots."""
+
+    class Scope(models.TextChoices):
+        ORDER = "ORDER", "Whole order"
+        PRODUCTS = "PRODUCTS", "Selected products"
+
+    code = models.CharField(
+        max_length=30,
+        unique=True,
+        validators=[
+            RegexValidator(
+                r"\A[A-Z0-9-]{3,30}\Z", "Use 3–30 letters, digits, or hyphens."
+            )
+        ],
+    )
+    percentage = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(100)]
+    )
+    scope = models.CharField(max_length=8, choices=Scope.choices, default=Scope.ORDER)
+    products = models.ManyToManyField(Product, blank=True, related_name="coupons")
+    end_date = models.DateField(
+        help_text="Valid through this date in America/Chicago (Central time)."
+    )
+    is_active = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["code"]
+        constraints = [
+            models.UniqueConstraint(Upper("code"), name="coupon_code_case_unique"),
+            models.CheckConstraint(
+                condition=models.Q(percentage__gte=1, percentage__lte=100),
+                name="coupon_percentage_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scope__in=["ORDER", "PRODUCTS"]),
+                name="coupon_valid_scope",
+            ),
+        ]
+
+    def __str__(self):
+        return self.code
+
+    def save(self, *args, **kwargs):
+        self.code = self.normalize_code(self.code)
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    @staticmethod
+    def normalize_code(code):
+        return (code or "").strip().upper()
+
+    def clean(self):
+        super().clean()
+        if self.pk:
+            original = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values_list("code", flat=True)
+                .first()
+            )
+            if original is not None and self.code != original:
+                raise ValidationError({"code": "A coupon code cannot be renamed."})
+
+    @property
+    def is_expired(self):
+        return timezone.localdate(timezone=ZoneInfo("America/Chicago")) > self.end_date
+
+    @property
+    def status(self):
+        if not self.is_active:
+            return "Inactive"
+        return "Expired" if self.is_expired else "Active"
+
+    def eligible_product_ids(self, lines):
+        """Validate current eligibility; never widen an empty product selection."""
+        if self.is_expired:
+            raise ValueError(
+                "This coupon has expired. Remove it or enter another code."
+            )
+        if not self.is_active:
+            raise ValueError(
+                "This coupon is inactive. Remove it or enter another code."
+            )
+        eligible = {line.product_id for line in lines}
+        if self.scope == self.Scope.PRODUCTS:
+            eligible &= set(self.products.values_list("pk", flat=True))
+        if not eligible:
+            raise ValueError(
+                "This coupon does not apply to any products in your cart. Remove it or add an eligible product."
+            )
+        return eligible
+
+    def line_discount(self, subtotal):
+        return (subtotal * Decimal(self.percentage) / 100).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
 
 class Cart(models.Model):
@@ -15,6 +118,7 @@ class Cart(models.Model):
         on_delete=models.CASCADE,
         related_name="cart",
     )
+    coupon_code = models.CharField(max_length=30, blank=True, default="")
 
     def __str__(self):
         return f"Cart for {self.user.username}"
@@ -101,6 +205,14 @@ class Order(models.Model):
         max_length=10, choices=Status.choices, default=Status.PLACED
     )
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
+    coupon_code = models.CharField(max_length=30, blank=True, default="")
+    coupon_percentage = models.PositiveSmallIntegerField(null=True, blank=True)
     email = models.EmailField()
 
     shipping_name = models.CharField(max_length=100)
@@ -117,7 +229,7 @@ class Order(models.Model):
     billing_state = models.CharField(max_length=2)
     billing_zip = models.CharField(max_length=10)
 
-    card_last4 = models.CharField(max_length=4)
+    card_last4 = models.CharField(max_length=4, blank=True)
 
     # default (not auto_now_add) so the seed can backdate orders.
     created_at = models.DateTimeField(default=timezone.now)
@@ -147,6 +259,9 @@ class OrderItem(models.Model):
     product_name = models.CharField(max_length=200)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField()
+    discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00")
+    )
 
     class Meta:
         ordering = ["pk"]
@@ -157,3 +272,7 @@ class OrderItem(models.Model):
     @property
     def line_total(self):
         return self.unit_price * self.quantity
+
+    @property
+    def net_total(self):
+        return self.line_total - self.discount

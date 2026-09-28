@@ -11,7 +11,7 @@
   <p class="mt-1 opacity-70">
     Placed {{ order.created_at|date:"F j, Y" }} by
     <span class="font-semibold">{{ order.user.username }}</span>
-    ({{ order.email }}) · card ending {{ order.card_last4 }}
+    ({{ order.email }}) · {% if order.card_last4 %}card ending {{ order.card_last4 }}{% else %}No payment required{% endif %}
   </p>
 
   <div class="mt-6 overflow-x-auto rounded-box bg-base-100 shadow-md">
@@ -21,7 +21,8 @@
           <th>Product</th>
           <th>Price at purchase</th>
           <th>Quantity</th>
-          <th class="text-right">Line total</th>
+          <th class="text-right">Discount</th>
+          <th class="text-right">Line total after discount</th>
         </tr>
       </thead>
       <tbody>
@@ -38,7 +39,8 @@
             </td>
             <td>${{ item.unit_price|intcomma }}</td>
             <td>{{ item.quantity }}</td>
-            <td class="text-right font-semibold">${{ item.line_total|intcomma }}</td>
+            <td class="text-right">−${{ item.discount|floatformat:2|intcomma }}</td>
+            <td class="text-right font-semibold">${{ item.net_total|floatformat:2|intcomma }}</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -79,8 +81,7 @@
           <button type="submit" class="btn btn-primary">Update</button>
         </form>
         <div class="mt-4 text-right">
-          <p class="text-sm uppercase tracking-wide opacity-60">Order total</p>
-          <p class="text-2xl font-bold text-primary">${{ order.total|intcomma }}</p>
+          {% include "orders/partials/_order_totals.html" %}
         </div>
       </div>
     </div>

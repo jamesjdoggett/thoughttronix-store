@@ -1,0 +1,8 @@
+{% load humanize %}
+<dl class="space-y-2">
+  <div class="flex justify-between gap-4"><dt>Subtotal</dt><dd>${{ order.subtotal|floatformat:2|intcomma }}</dd></div>
+  {% if order.coupon_code %}
+    <div class="flex justify-between gap-4"><dt>{{ order.coupon_code }} ({{ order.coupon_percentage }}%)</dt><dd>−${{ order.discount|floatformat:2|intcomma }}</dd></div>
+  {% endif %}
+  <div class="flex justify-between gap-4 font-bold"><dt>Order total</dt><dd class="text-primary">${{ order.total|floatformat:2|intcomma }}</dd></div>
+</dl>
