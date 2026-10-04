@@ -1,5 +1,49 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-04 - Product-image build, marketing import, and reflection evidence
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store, including architecture, template, URL, and testing conventions.
+2. "Read HANDOFF.md and implement the agreed product-image feature. After reading it, delete HANDOFF.md and do not commit it.
+
+   Follow AGENTS.md. Do not edit .gitignore or commit product-images/. Keep the supplied source images until importing and verification are complete.
+
+   Run the test suite and fix failures caused by the feature. Give me basic browser verification steps covering uploads, replacements, removals, rejected files, missing-file fallback, the marketing import command, and catalog/detail appearance."
+3. "FocusHalo has been added through the employee back-office form. Do not run seed.
+
+   Read the standard session-log prompt in the PROMPTS.md header and follow it to log this build session.
+
+   Gather the actual code evidence for my reflection:
+   1. Product image field definitions, with filenames and line numbers; explain upload_to.
+   2. The opening back-office upload form tag, with filename and line number; explain enctype.
+   3. FocusHalo's image file paths on disk, image values stored in the database, and browser image URLs. Include both catalog and detail versions.
+   4. The fields/settings and files that determine these paths and URLs.
+   5. The development URL configuration that serves media, with filename and line numbers.
+   6. The exact media folder and database file needed for the grading snapshot.
+
+   Inspect the actual code and database; do not guess. Do not commit yet."
+
+4. "The assignment explicitly requires an ImageField on Product, but you implemented image_catalog and image_detail as FileFields.
+
+   Change these processed image fields to ImageFields while preserving the existing optimized WebP files, database values, validation, and upload behavior. Generate and apply the migration, run the relevant checks, and confirm FocusHalo still displays correctly.
+
+   Update the build-session log to include this correction. Then give me the updated image-field definitions and line numbers, plus any other reflection references whose line numbers changed. Do not run seed or commit yet."
+
+### Summary
+
+- **Outcome:** Implemented two optional optimized image fields, shared still-image validation and WebP processing for employee and Django admin forms, current previews, replacement/removal/deletion cleanup after commit, independent missing-file placeholders, square uncropped catalog/detail frames, configurable local media, development media serving, explicit marketing import mappings, orphan-file reconciliation, documentation, and isolated image tests. Read and deleted HANDOFF.md. Verified migrations on a disposable database before applying the image migration to the existing database. Imported all 12 mapped marketing images successfully; rerunning skipped all 12. Verified the 24 imported WebPs and catalog/detail HTTP rendering. Supplied source artwork remains intact. Kept .gitignore unchanged and excluded media/ and product-images/ through this checkout's .git/info/exclude. No seed, commit, or push was run. Preserved previous PROMPTS.md entries.
+- **Verification:** The focused image suite passed 21 tests; the final full suite passed 254 tests. A subsequent focused validation check passed 4 tests after improving very-large-image error wording. Ruff lint, formatting checks for products/config, Django system checks, migration consistency checks, disposable migration application, and forced production Tailwind build passed. Imported optimized files totaled 1,899,798 bytes versus 24,343,724 bytes of mapped source artwork. Browser steps were supplied; visual browser verification was not performed or claimed. For the reflection follow-up, inspected actual code with line numbers, runtime settings, and FocusHalo's database row (pk 35, slug focushalo). Both stored WebPs exist, decode correctly at 600x600 and 1200x1200, appear in the rendered catalog/detail HTML, and return HTTP 200 through development media routes.
+- **Deviations:** No recommended design choices were overridden. Chose 10 MiB (10,485,760 bytes), WebP quality 85, UUID filenames, import_product_images as the command name, and two non-editable FileFields controlled by shared form upload/removal fields. The user's instruction not to edit .gitignore was honored using local Git exclusions. The user subsequently reported creating FocusHalo through the employee form and requested a session log plus evidence for their own reflection; no reflection file was written.
+- **Sideways:** uv initially failed to access its cache inside the sandbox; approved escalation allowed dependency installation and checks. The first disposable migration check applied successfully but temporary-directory cleanup failed because SQLite remained open; closing connections made the rerun pass. Lint/format checks found ordering and formatting issues, which were corrected; incidental formatting outside the feature was restored. An inline verification command failed due to PowerShell quoting; a multiline Python script verified the actual imports instead. Failed storage writes are cleaned without publishing a partial replacement. Database rollback preserves previous files but can leave a complete unreferenced new pair because storage is not transactional; the documented prune_product_images command reviews files older than 24 hours before optional deletion. No feature test failures occurred.
+
+
+### ImageField correction follow-up
+
+- **Outcome:** The user identified an assignment requirement the initial implementation missed: Product must use ImageField. Changed both processed image fields from FileField to ImageField, retaining upload_to="products/", blank=True and editable=False. Generated 0005_alter_product_image_catalog_and_more with two AlterField operations; verified migrations on a disposable database, then applied it to the existing database. Compared every product's image database values and SHA-256 hashes of all 26 media files before and after migration: all were unchanged. FocusHalo retained its catalog/detail paths and URLs, with valid 600x600 and 1200x1200 WebPs. Both rendered pages reference the correct files, and both media requests returned HTTP 200 through Django's test client. No visual browser verification was claimed. The upload, validation, optimization and cleanup code was unchanged. No seed or commit was run.
+- **Verification:** The full suite passed 254 tests after the ImageField correction, including 21 image tests covering uploads, replacements, removals, validation, storage failures, fallback rendering and imports. Ruff check, model formatting, Django system checks, migration consistency checks and disposable migration application passed. showmigrations confirms migration 0005 is applied. No CSS/templates changed, so Tailwind did not need rebuilding.
+- **Deviations and sideways:** The initial FileField choice did not meet the assignment's explicit ImageField requirement; this correction fixes that mistake. Recorded the user's correction as prompt 4 while retaining the original session history. Formatting initially needed normalization and passed afterward; no test failures occurred. Rechecked all prior reflection references: field definitions remain products/models.py lines 67 and 68; prepare_image remains line 121, URL fallback line 139, catalog URL property line 148 and detail URL property line 153. The form tag remains line 16, settings lines 135/136, media route line 19, and catalog/detail image tags lines 64/17. New migration ImageField declarations are at lines 16 and 21. No previous reflection code-reference line numbers changed.
+
 ## 2026-10-04 - Product-image design interview and implementation handoff
 
 ### Prompts

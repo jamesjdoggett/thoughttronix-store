@@ -64,8 +64,8 @@ class ProductQuerySet(models.QuerySet):
 
 
 class Product(models.Model):
-    image_catalog = models.FileField(upload_to="products/", blank=True, editable=False)
-    image_detail = models.FileField(upload_to="products/", blank=True, editable=False)
+    image_catalog = models.ImageField(upload_to="products/", blank=True, editable=False)
+    image_detail = models.ImageField(upload_to="products/", blank=True, editable=False)
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     tagline = models.CharField(max_length=200, blank=True)
