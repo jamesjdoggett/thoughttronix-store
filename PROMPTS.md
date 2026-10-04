@@ -44,6 +44,12 @@
 - **Verification:** The full suite passed 254 tests after the ImageField correction, including 21 image tests covering uploads, replacements, removals, validation, storage failures, fallback rendering and imports. Ruff check, model formatting, Django system checks, migration consistency checks and disposable migration application passed. showmigrations confirms migration 0005 is applied. No CSS/templates changed, so Tailwind did not need rebuilding.
 - **Deviations and sideways:** The initial FileField choice did not meet the assignment's explicit ImageField requirement; this correction fixes that mistake. Recorded the user's correction as prompt 4 while retaining the original session history. Formatting initially needed normalization and passed afterward; no test failures occurred. Rechecked all prior reflection references: field definitions remain products/models.py lines 67 and 68; prepare_image remains line 121, URL fallback line 139, catalog URL property line 148 and detail URL property line 153. The form tag remains line 16, settings lines 135/136, media route line 19, and catalog/detail image tags lines 64/17. New migration ImageField declarations are at lines 16 and 21. No previous reflection code-reference line numbers changed.
 
+### FocusHalo image-generation provenance
+
+- FocusHalo's image was generated using ChatGPT's image-generation tool with this exact prompt:
+
+  "Create a square polished ecommerce product photograph for a fictional futuristic product called FocusHalo. A sleek premium black neural headband with a subtle luminous violet ring and refined electronics, clearly recognizable as wearable headband, floating at a three-quarter angle against a clean dark charcoal studio background. Entire device visible, centered with generous margin, crisp realistic materials, soft studio highlights and violet accent light. No text, no lettering, no logos, no people. High quality product catalog artwork."
+
 ## 2026-10-04 - Product-image design interview and implementation handoff
 
 ### Prompts
