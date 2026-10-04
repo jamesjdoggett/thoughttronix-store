@@ -60,8 +60,8 @@
     {% for product in products %}
       <div class="card bg-base-100 shadow-md transition-shadow hover:shadow-xl">
         <figure>
-          <a href="{{ product.get_absolute_url }}">
-            <img src="{% static product.category.placeholder_image %}" alt="{{ product.name }}" />
+          <a href="{{ product.get_absolute_url }}" class="block w-full aspect-square">
+            <img src="{{ product.catalog_image_url }}" alt="{{ product.name }}" width="600" height="600" loading="lazy" class="h-full w-full object-contain" />
           </a>
         </figure>
         <div class="card-body">

@@ -1,5 +1,37 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-04 - Product-image design interview and implementation handoff
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store.
+2. "$grill-me I want to add product images to ThoughtTronix. Marketing's provided images are in product-images/ at the repository root. This is a temporary source folder, not Django's media directory. Every product must display its uploaded image when available or the existing placeholder. Missing files must not produce broken image icons. Employees must upload images through the back office. Reject unusable files before saving them and explain the problem in plain language. Images should look consistent across the catalog and product detail pages, including alongside placeholders. Pages should stay fast. Interview me one question at a time to settle the design. Explore the codebase for anything you can answer yourself."
+3. Supplied the grill-me skill instructions: interview one question at a time, assume beginner knowledge, state which design decision each question settles, explain options and tradeoffs, recommend one option with reasons, and explore the codebase instead of asking questions it can answer.
+4. "A" — use a dedicated initial import command, then back-office uploads for future changes.
+5. "A" — assign SoulSear artwork to SoulSear Mark I only.
+6. "A" — use the SyncRest image without text.
+7. "A" — show the whole image inside a fixed frame without cropping.
+8. "A" — use square frames for catalog and detail images and placeholders.
+9. "A" — one image per product, with upload, replacement, and removal controls rather than a gallery.
+10. "A" — generate smaller catalog and larger detail images during upload/import rather than serving originals unchanged.
+11. "A" — accept still JPEG, PNG, and WebP files, validating actual decoded contents.
+12. "A" — cap uploads at 10 MB and 20 million pixels.
+13. "A" — require at least 400 pixels on each side.
+14. "A" — store optimized versions only, without retaining originals.
+15. "A" — use a separate configurable local media directory rather than cloud storage.
+16. "A" — preserve existing product images when rerunning the marketing import and report skipped products.
+17. "A" — automatically delete old files after successful replacement, removal, or product deletion.
+18. "A" — generate WebP versions capped at 600 pixels on the longest side for catalog cards and 1,200 pixels for detail, preserving proportions/transparency without enlargement.
+19. "A" — continue importing valid files when individual sources are missing or invalid and report each problem.
+20. "A" — support image uploads through Django admin with the same validation and processing as the back office.
+21. "Write HANDOFF.md for a fresh session to implement our agreed product-image design. Include every settled requirement, the artwork mappings, relevant codebase findings, and test/browser verification requirements. Do not commit HANDOFF.md. Read the standard session-log prompt in the PROMPTS.md header and follow it to log this interview session."
+
+### Summary
+
+- **Outcome:** Completed the design interview and wrote HANDOFF.md with the complete agreed requirements, 12 explicit artwork mappings, repository findings, and automated/browser verification requirements. Inspected product models, forms, views, admin, URLs, templates, settings, dependency configuration, seed catalog, shared fixtures, documentation, and Git status. Checked supplied PNG dimensions and visually inspected both SyncRest variants. Product-image implementation, migrations, imports, and tests were not performed. No files were committed or pushed.
+- **Deviations:** The user selected every recommended option, with no overridden recommendations or follow-up corrections. The final follow-up requested a fresh-session implementation handoff and this log. Routine implementation details not individually decided are identified in the handoff rather than presented as settled choices.
+- **Sideways:** An initial quoted search for product names returned no matches; a targeted search resolved the relevant names. A file-listing command included a nonexistent tests directory; the actual product tests were found in products/tests.py and products/test_backoffice.py. Neither issue affected the design. The existing untracked product-images/ folder was left intact. No browser verification or application checks were claimed for this documentation-only session.
+
 ## 2026-09-27 - Discount coupons and coupon picker review
 
 ### Prompts

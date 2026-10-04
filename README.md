@@ -116,3 +116,92 @@ create their own fixtures and never run the seed command. After browser
 review, complete the assignment's feature commit/push, a separate meaningful
 review change and commit/push, then the requested session log and your own
 reflection with the final commit/push.
+
+
+## Product images
+
+Employees upload one optional product image on the back-office create/edit form;
+superusers use the same image controls and current-image preview in Django admin.
+Choose **Remove image** to restore the category placeholder. Unrelated edits keep
+existing artwork. Still JPEG, PNG and WebP contents are accepted regardless of
+filename or claimed MIME type. Files must be at most **10 MiB (10,485,760 bytes)**,
+at most **20,000,000 decoded pixels**, and at least **400 pixels on both axes**.
+Corrupt, truncated and animated files are rejected with inline errors.
+
+Uploads are decoded before saving, oriented using EXIF, and converted to WebP at
+quality 85. Only a catalog version (longest side at most 600 pixels) and a detail
+version (at most 1,200 pixels) are retained. Aspect ratio and transparency are
+preserved; small images are never enlarged. Square frames show complete artwork
+without cropping. Catalog cards lazy-load the small version; detail images load
+normally. Each missing version independently falls back to its category SVG.
+
+`MEDIA_ROOT` defaults to repository-root `media/`; `MEDIA_URL` defaults to
+`/media/`. Both can be configured in `.env`. Never set `MEDIA_ROOT` to
+`product-images/`. This checkout excludes both directories through
+`.git/info/exclude`; `.gitignore` is unchanged. Other checkouts should add local
+excludes for `/media/` and `/product-images/`, or keep media outside the repository.
+In production, use a persistent writable media volume, back it up with the
+database, and configure the web server to serve `MEDIA_URL` from that volume.
+Django's DEBUG media serving is for local development only.
+
+Image pairs get unique filenames and are referenced only after both writes
+succeed. Partial write failures are cleaned up; invalid forms write nothing.
+Replaced/removed/deleted files are cleaned only after database commit. Database
+rollback preserves the old image; because filesystem writes are not transactional,
+a rollback or interrupted request can leave an unreferenced new pair. Periodically
+run `uv run python manage.py prune_product_images` to review unreferenced WebPs
+older than 24 hours, then use `--delete` to remove them. Run reconciliation during
+a quiet maintenance window, with no long-running image imports or transactions.
+
+### Marketing import
+
+After applying migrations, run:
+
+```bash
+uv run python manage.py import_product_images
+# Or use a separate source location:
+uv run python manage.py import_product_images --source "path/to/artwork"
+```
+
+This command changes only images on existing products without any stored image
+reference. It reports imports, existing-image skips, missing target products and
+missing/invalid files, then totals; valid files continue importing after failures.
+Reruns preserve employee uploads. It does not seed, create products, move sources
+or keep original uploads in media. The twelve explicit assignments include
+SoulSear **Mark I** only and **SyncRest GPT No Text.png**; the text-bearing SyncRest
+and related variants are not imported. Source artwork remains untouched and can
+be archived separately after verification; shoppers use only media files.
+
+### Image browser verification
+
+Use the existing database, without reseeding. Run `uv run python manage.py migrate`
+and `uv run python manage.py tailwind runserver`. Use separate employee,
+superuser and customer browser sessions.
+
+1. As employee, create a disposable product with a valid JPEG/PNG/WebP, then edit
+   it. Check the current preview, replace it, save an unrelated edit, and remove
+   the image. Expect replacement to appear, unrelated edits to preserve it, and
+   removal to restore the placeholder. Repeat in `/admin/` as superuser. A
+   customer must get 403 at `/backoffice/products/` and its create/edit URLs.
+2. With an existing image, try a renamed unsupported file, a corrupt/truncated
+   image, an animated PNG/WebP, a file over 10 MiB, dimensions over 20 million
+   pixels, and an image with either side below 400. Expect inline errors and the
+   previous image unchanged. Also submit a valid image with an invalid price:
+   nothing should save until the complete form is valid.
+3. Review catalog, category and detail at mobile and desktop widths, using
+   portrait art, landscape MindSync Duo, text-bearing art and placeholders.
+   Confirm square aligned frames, complete uncropped images, visible text and
+   transparency, and stable layout. In browser Network, cards request
+   `-catalog.webp` with lazy loading; detail requests `-detail.webp` normally.
+   Original marketing PNGs must not be requested.
+4. On a disposable test product only, note its media paths, temporarily rename
+   its `-catalog.webp` file and reload the catalog/category: expect a placeholder
+   while detail still works. Restore it, then repeat with `-detail.webp`: only
+   detail falls back. Restore both files afterward.
+5. Run the marketing command when ready and review its report and assignments,
+   including Mark I and text-free SyncRest. Rerun: existing images must be skipped.
+   Use `--source` with a disposable copy containing a missing/corrupt file to
+   exercise individual failures on products without images. Valid assignments
+   should still import. Temporarily rename that disposable source directory and
+   reload imported products: their images must still display from media.
+   Keep the supplied originals intact until verification is complete.

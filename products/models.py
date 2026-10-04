@@ -1,9 +1,14 @@
-from django.db import models
+from uuid import uuid4
+
+from django.core.files.base import ContentFile
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from django.templatetags.static import static
 from django.urls import reverse
 
 # Categories with a dedicated placeholder illustration; anything else
-# falls back to default.svg. No media handling in the core — placeholder
-# images are static files chosen by category.
+# falls back to default.svg.
 PLACEHOLDER_CATEGORIES = {
     "home-assistants",
     "neural-implants",
@@ -59,6 +64,8 @@ class ProductQuerySet(models.QuerySet):
 
 
 class Product(models.Model):
+    image_catalog = models.FileField(upload_to="products/", blank=True, editable=False)
+    image_detail = models.FileField(upload_to="products/", blank=True, editable=False)
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=200, unique=True)
     tagline = models.CharField(max_length=200, blank=True)
@@ -81,5 +88,80 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs) -> None:
+        """Persist image references, cleaning replaced files only after commit."""
+        using = kwargs.get("using") or self._state.db or "default"
+        old = (
+            type(self)
+            .objects.using(using)
+            .filter(pk=self.pk)
+            .values_list("image_catalog", "image_detail")
+            .first()
+            if self.pk
+            else None
+        )
+        try:
+            super().save(*args, **kwargs)
+        except Exception:
+            for name in getattr(self, "_staged_images", []):
+                self.image_catalog.storage.delete(name)
+            raise
+        current = {self.image_catalog.name, self.image_detail.name}
+        if old:
+            storage = self.image_catalog.storage
+            obsolete = [name for name in old if name and name not in current]
+            transaction.on_commit(
+                lambda: [storage.delete(name) for name in obsolete], using=using
+            )
+        self._staged_images = []
+
     def get_absolute_url(self):
         return reverse("products:detail", kwargs={"slug": self.slug})
+
+    def prepare_image(self, versions: tuple[bytes, bytes]) -> None:
+        """Write a complete unique pair; a failed write removes staged files."""
+        storage = self.image_catalog.storage
+        prefix = f"products/{uuid4().hex}"
+        names = []
+        attempted = []
+        try:
+            for label, data in zip(("catalog", "detail"), versions, strict=True):
+                name = f"{prefix}-{label}.webp"
+                attempted.append(name)
+                names.append(storage.save(name, ContentFile(data)))
+        except Exception:
+            for name in set(names + attempted):
+                storage.delete(name)
+            raise
+        self._staged_images = names
+        self.image_catalog, self.image_detail = names
+
+    def _image_url(self, field) -> str:
+        try:
+            if field.name and field.storage.exists(field.name):
+                return field.url
+        except OSError:
+            pass
+        return static(self.category.placeholder_image)
+
+    @property
+    def catalog_image_url(self) -> str:
+        """Return the small version or the category placeholder if missing."""
+        return self._image_url(self.image_catalog)
+
+    @property
+    def detail_image_url(self) -> str:
+        """Return the detail version or the category placeholder if missing."""
+        return self._image_url(self.image_detail)
+
+
+@receiver(post_delete, sender=Product)
+def delete_product_images(sender, instance: Product, using: str, **kwargs) -> None:
+    """Remove deleted products' files after the database transaction commits."""
+    storage = instance.image_catalog.storage
+    names = [
+        field.name
+        for field in (instance.image_catalog, instance.image_detail)
+        if field.name
+    ]
+    transaction.on_commit(lambda: [storage.delete(name) for name in names], using=using)

@@ -10,8 +10,12 @@
       <h2 class="card-title">
         {% if form.instance.pk %}Edit &ldquo;{{ form.instance.name }}&rdquo;{% else %}New product{% endif %}
       </h2>
-      <form method="post" class="mt-2 space-y-4">
+      {% if form.instance.image_catalog %}
+        <img src="{{ form.instance.catalog_image_url }}" alt="Current product image" width="200" height="200" class="aspect-square w-48 object-contain" />
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" class="mt-2 space-y-4">
         {% csrf_token %}
+        {{ form.non_field_errors }}
         {% for field in form %}
           {% include "products/partials/_field.html" %}
         {% endfor %}

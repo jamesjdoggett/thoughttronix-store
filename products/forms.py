@@ -9,7 +9,9 @@ in one shared ``__init__`` loop, as on ``CheckoutForm``.
 from decimal import Decimal
 
 from django import forms
+from django.core.files.uploadedfile import UploadedFile
 
+from .images import IMAGE_HELP, optimize_image
 from .models import Category, Product, Tag
 
 
@@ -30,11 +32,51 @@ class StyledModelForm(forms.ModelForm):
                 widget.attrs.setdefault("size", 8)
             elif isinstance(widget, forms.Select):
                 widget.attrs["class"] = "select w-full"
+            elif isinstance(widget, forms.FileInput):
+                widget.attrs["class"] = "file-input w-full"
             else:
                 widget.attrs["class"] = "input w-full"
 
 
 class ProductForm(StyledModelForm):
+    image = forms.FileField(
+        required=False,
+        help_text=IMAGE_HELP,
+        widget=forms.FileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),
+    )
+    remove_image = forms.BooleanField(
+        required=False, help_text="Restore the category placeholder."
+    )
+
+    def clean_image(self) -> UploadedFile | None:
+        """Validate and encode in memory; never persist an invalid form's upload."""
+        upload = self.cleaned_data.get("image")
+        self._image_versions = optimize_image(upload) if upload else None
+        return upload
+
+    def clean(self) -> dict:
+        """Require an unambiguous replacement or removal."""
+        data = super().clean()
+        if data.get("image") and data.get("remove_image"):
+            self.add_error("image", "Choose either a replacement image or removal.")
+        return data
+
+    def _post_clean(self):
+        super()._post_clean()
+        if self.errors:
+            return
+        if self.cleaned_data.get("remove_image"):
+            self.instance.image_catalog = ""
+            self.instance.image_detail = ""
+        elif getattr(self, "_image_versions", None):
+            try:
+                self.instance.prepare_image(self._image_versions)
+            except OSError:
+                self.add_error(
+                    "image",
+                    "The image could not be stored. Please try again; your previous image is unchanged.",
+                )
+
     price = forms.DecimalField(
         label="Price (USD)",
         max_digits=10,
@@ -53,6 +95,8 @@ class ProductForm(StyledModelForm):
             "category",
             "tags",
             "is_available",
+            "image",
+            "remove_image",
         ]
 
 
