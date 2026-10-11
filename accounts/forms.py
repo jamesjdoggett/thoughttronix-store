@@ -1,7 +1,20 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    UserCreationForm,
+)
 
 from .models import User
+
+
+class SecurityPasswordChangeForm(PasswordChangeForm):
+    """Use Django's current-password check and configured password policy."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input w-full"
 
 
 class SignupForm(UserCreationForm):

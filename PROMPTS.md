@@ -1,5 +1,21 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-11 - Account Security Center Phase 6
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context, including architecture, commands, template, URL, and testing conventions.
+2. "Read prd/account-security.md and plans/account-security.md. Implement Phase 6 only. Run automated checks and explain how to verify it manually in the browser. Do not begin Phase 7 or commit yet."
+3. 'Update PROMPTS.md with this Phase 6 session’s prompts in order, corrections, outcome, deviations, and anything that went sideways. Commit the phase and log as "Complete Account Security Center Phase 6", push, and confirm the working tree is clean. Do not begin Phase 7.'
+
+### Summary
+
+- **Outcome:** Implemented Phase 6 only. Account security links to a shared signed-in password-change form for customers, employees, and administrators, including accounts without verified email. Django's PasswordChangeForm checks the current password, new-password confirmation, and the existing minimum-length, common-password, numeric-password, and similarity validators. PasswordChangeView preserves the submitting session while other sessions lose authenticated access on their next request. Password changes invalidate Django reset tokens. Alerts go only to the current verified address, never to a pending replacement, and contain neither credentials nor reset links. Alert exceptions and zero accepted messages are logged without undoing the password change. Pending replacements remain pending. Added accounts/PHASE6.md with browser verification instructions. No migrations were needed. Phase 7 was not begun; recovery guidance remains informational. The user subsequently authorized this log, the exact commit message, and pushing.
+- **Verification:** The full suite passed **374 tests**, including 16 new Phase 6 tests covering independent sessions, all roles, verified/unverified and missing-email accounts, password-policy and confirmation failures, reset-token invalidation, notification destination and content, delivery exceptions and zero deliveries, ownership isolation, anonymous access, and CSRF protection. Ruff lint, changed-file formatting, Django system checks, migration consistency, production CSS rebuild, and git diff checks passed. Repository-wide formatting still flags the pre-existing unchanged orders/test_coupon_selector.py, which was left untouched.
+- **Browser confirmation:** Supplied steps for invalid credentials and weak passwords, two browser sessions, retained submitting-session access, other-session sign-out, old/new password login, verified-email alerts, missing/unverified email, pending replacements, all roles, and anonymous access. Neither the agent nor the user reported completing browser verification in this session.
+- **Deviations and follow-up questions:** No user corrections, design clarifications, or follow-up questions occurred. Reused Django's built-in password-change behavior rather than adding custom session or token infrastructure. Checked reset-token invalidation directly without introducing the Phase 7 public recovery flow. Added this entry above prior entries without rewriting their history.
+- **Sideways and corrections:** uv initially could not access its external cache under the sandbox; approved escalation allowed formatting, lint, and tests. The first lint check caught import ordering in accounts/views.py; the imports were corrected and the final lint check passed. The full test suite passed on its first run. Repository-wide formatting reported the unrelated existing issue described above. The initial CSS build reported stylesheets up to date; a forced production rebuild then succeeded. No unrelated file was reformatted. Initial staging and committing could not create .git/index.lock under the sandbox; escalation was requested for the authorized Git operations.
+
 ## 2026-10-11 - Account Security Center Phase 5
 
 ### Prompts

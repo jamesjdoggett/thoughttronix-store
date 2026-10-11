@@ -6,6 +6,11 @@ app_name = "accounts"
 
 urlpatterns = [
     path(
+        "security/password/",
+        views.SecurityPasswordChangeView.as_view(),
+        name="password_change",
+    ),
+    path(
         "security/email/replace/",
         views.EmailReplacementView.as_view(),
         name="email_replacement",

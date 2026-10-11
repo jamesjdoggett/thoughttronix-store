@@ -27,7 +27,9 @@
   </div></section>
   <section class="card bg-base-100"><div class="card-body">
     <h2 class="card-title">Password</h2>
-    <p>Keep using your username and current password to sign in. Password changes and forgotten-password recovery will be available in a later update.</p>
+    <a class="btn btn-outline" href="{% url 'accounts:password_change' %}">Change password</a>
+    <p>Changing your password keeps this session signed in and signs out your other sessions.</p>
+    <p>Forgotten-password recovery will be available in a later update.</p>
     <p>Recovery will require a verified email. If you lose inbox access, recover your email account first.</p>
   </div></section>
 </div>

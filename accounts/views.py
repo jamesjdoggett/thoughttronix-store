@@ -1,13 +1,20 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, FormView, TemplateView
 
-from .forms import EmailCorrectionForm, EmailReplacementForm, SignInForm, SignupForm
+from .forms import (
+    EmailCorrectionForm,
+    EmailReplacementForm,
+    SecurityPasswordChangeForm,
+    SignInForm,
+    SignupForm,
+)
 from .models import SecurityRequest
+from .passwords import send_password_change_alert
 from .verification import reserve_request, send_verification, verify_email_link
 
 
@@ -115,6 +122,22 @@ class SecurityOverviewView(CheckoutContinuationMixin, LoginRequiredMixin, Templa
         return super().get_context_data(
             can_verify_email=self.request.user.can_verify_email(), **kwargs
         )
+
+
+class SecurityPasswordChangeView(PasswordChangeView):
+    """Change credentials while retaining only the submitting session."""
+
+    template_name = "accounts/password_change.html"
+    form_class = SecurityPasswordChangeForm
+    success_url = reverse_lazy("accounts:security")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        send_password_change_alert(self.request.user)
+        messages.success(
+            self.request, "Password changed. Other sessions have been signed out."
+        )
+        return response
 
 
 class EmailCorrectionView(CheckoutContinuationMixin, LoginRequiredMixin, FormView):
