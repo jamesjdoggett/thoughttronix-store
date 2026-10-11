@@ -1,5 +1,36 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-11 - Account security Phase 1 implementation and console-link correction
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store, including commands, architecture, template, URL, testing, and AI-usage-log conventions.
+2. "Read prd/account-security.md and plans/account-security.md. Implement Phase 1 only, following its acceptance criteria. Use Django's built-in authentication and password framework for security-sensitive work.
+
+   Run automated verification, including Ruff formatting, Ruff linting, and the full test suite. Then explain how I can manually verify Phase 1 in the browser.
+
+   Do not implement later phases or commit yet."
+3. "Phase 1 is not complete. Clicking the verification link from the console email shows:
+
+   'This link is invalid or expired. Sign in to the account that requested it to send another email.'
+
+   Investigate why the freshly generated link is rejected. Check the generated URL, token creation and validation, and account verification state. Fix the cause and add a regression test that follows the actual link generated in the outgoing email.
+
+   Run verification again and give me browser retest steps. Do not continue to Phase 2 or commit."
+4. "The browser retest passed: the new verification link works. Phase 1 is approved.
+
+   Append a session log to PROMPTS.md under today's date, newest entry at the top. Record every prompt in order, including corrections. Summarize the outcome, follow-up questions, and the console email URL wrapping problem and fix. Record 281 passing tests. Only claim browser checks I actually confirmed.
+
+   Do not commit yet; let me review the log first."
+
+### Summary
+
+- **Outcome:** Implemented Phase 1 signup and initial email verification only. Signup requires a valid unique email normalized by trimming surrounding whitespace and lowercasing, with database uniqueness enforcement; dots and plus suffixes remain significant. Retained Django UserCreationForm, password validators, and username authentication. Added signed 24-hour verification links using Django timestamp signing, signed-in resend, expired/invalid-link guidance, and delivery-failure retry without deleting accounts. Verification does not authenticate recipients. Added durable, transactional account/destination and network request limits, including suppressed requests and failed sends. Chose and documented 10 signup attempts per network address per rolling hour; resends leave earlier links to the same unchanged address valid until expiry. Added configurable email delivery with working local console defaults and Phase 1 documentation/browser instructions in accounts/PHASE1.md. Applied accounts migration 0002 locally. Existing addresses start unverified; valid unique addresses are normalized, while invalid addresses and every member of a duplicate group have their original values preserved in legacy_email and assigned email cleared. Migration tests verify preserved account identifiers, roles, carts, orders, and historical order email snapshots. No later-phase checkout enforcement, Security Center, email correction/replacement, password changes, or recovery flows were implemented. No seed, commit, or push was run.
+- **Verification:** The final full suite passed **281 tests**, including regressions that follow URLs extracted from actual outgoing signup and resend messages and captured console output. Console-link tests cover anonymous and signed-in recipients. Ruff formatting and linting, Django system checks, migration consistency checks, and git diff checks passed. The production Tailwind stylesheet was rebuilt during the initial implementation. The initial corrected Phase 1 suite passed 276 tests before the browser-reported console-link defect; that result did not establish that console links were usable. After the fix, checked the active local backend against the existing unverified account: the printed URL matched the complete generated URL and its token validated for the current account and email, without changing that account's verification state during the diagnostic.
+- **Browser confirmation:** The user first reported that clicking the console verification link displayed the invalid-or-expired message. After the fix and retest instructions, the user explicitly confirmed that the new verification link works and approved Phase 1. No other browser checks, including private-window authentication behavior, resend cooldowns, cart access, duplicate-email validation, or delivery-failure recovery, were confirmed by the user or claimed as completed browser verification.
+- **Deviations and follow-up questions:** No design clarification or follow-up question was asked of the user. The user corrected the premature Phase 1 completion claim by reporting the broken console link, requested investigation and an outgoing-email regression, then confirmed the successful browser retest and approved the phase. The numeric signup threshold, legacy-duplicate migration policy, and same-address resend policy were implementation choices documented within the approved Phase 1 scope. This log is added above the previous entries without rewriting their history and remains uncommitted for review.
+- **Sideways:** uv initially could not access its external cache; approved escalation allowed verification commands to run. Ruff found formatting/import/model-order issues that were corrected; unrelated formatter changes were restored. Focused testing caught transient SQLite locking under simultaneous requests and an incorrect cart-response assertion; database reservations now retry lock contention, and the test follows the existing cart response. Full-suite testing exposed an existing coupon migration test creating a historical account model against the new account schema; its fixture now uses the current user model and passes the user ID to the historical order model. A throttled-signup response attempted to add an error to an unbound form; it was corrected to show a message without validating further submitted identities. Most significantly, Django 6's standard console backend serialized the long verification URL using quoted-printable soft line breaks with '=' markers. Clicking the visible fragment submitted a truncated token even though the original generated URL, signed payload, and database email were correct. Earlier tests inspected decoded in-memory email bodies and missed the console serialization defect. Added a regression that reproduced the failure from captured console output, then introduced accounts.mail_backends.ConsoleEmailBackend, a Django console-backend subclass using the RFC 998-character line limit so the full URL remains intact. It is the default development backend; SMTP serialization and token validation are unchanged. The regressions passed after the fix, followed by the 281-test full-suite pass and the user's confirmed browser retest. A process-inspection diagnostic was denied by the sandbox and was unnecessary once console serialization reproduced the cause.
+
 ## 2026-10-11 - Account Security Center tracer-bullet plan
 
 ### Prompts

@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
@@ -15,9 +16,10 @@ def test_existing_orders_gain_undiscounted_snapshots():
     executor.migrate(old_target)
     try:
         apps = executor.loader.project_state(old_target).apps
-        user = apps.get_model("accounts", "User").objects.create(username="legacy")
+        # Accounts remain at their current schema while only orders is migrated.
+        user = get_user_model().objects.create(username="legacy")
         order = apps.get_model("orders", "Order").objects.create(
-            user=user,
+            user_id=user.pk,
             total=Decimal("699.98"),
             card_last4="4242",
         )

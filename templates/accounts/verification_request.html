@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Verify email - ThoughtTronix{% endblock %}
+{% block content %}
+<div class="card bg-base-100 mx-auto max-w-lg"><div class="card-body">
+<h1 class="card-title">Verify email</h1>
+{% if user.email_verified %}<p>Your email is verified.</p>
+{% elif user.email %}<p>Send a verification link to {{ user.email }}. Links expire after 24 hours.</p>
+<form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Send verification email</button></form>
+{% else %}<p>Your account has no usable email address. Adding or correcting legacy addresses will be available in the next update.</p>{% endif %}
+<a class="link" href="{% url 'products:catalog' %}">Continue shopping</a>
+</div></div>
+{% endblock %}

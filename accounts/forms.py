@@ -1,17 +1,23 @@
+from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 
 from .models import User
 
 
 class SignupForm(UserCreationForm):
-    """Django's stock signup fields — username plus password and confirmation.
+    """Username signup using Django password validation and a recovery address."""
 
-    No email: signing up asks for the minimum. The widgets carry DaisyUI
-    classes because plain Django forms own their own styling here.
-    """
+    email = forms.EmailField(required=True)
 
     class Meta(UserCreationForm.Meta):
         model = User
+        fields = ("username", "email")
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("This email is unavailable")
+        return email
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

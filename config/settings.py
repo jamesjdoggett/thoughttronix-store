@@ -148,6 +148,20 @@ TAILWIND_CLI_VERSION = "2.9.2"
 TAILWIND_CLI_SRC_CSS = "assets/css/source.css"
 
 
-# Email — console backend only; real mail is out of scope for the core.
+# Email: console locally, configurable backend and sender for deployment.
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = env.str(
+    "EMAIL_BACKEND", default="accounts.mail_backends.ConsoleEmailBackend"
+)
+DEFAULT_FROM_EMAIL = env.str(
+    "DEFAULT_FROM_EMAIL", default="ThoughtTronix <noreply@localhost>"
+)
+EMAIL_HOST = env.str("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+SECURITY_EMAIL_NETWORK_LIMIT = env.int("SECURITY_EMAIL_NETWORK_LIMIT", default=30)
+SECURITY_SIGNUP_LIMIT = env.int("SECURITY_SIGNUP_LIMIT", default=10)

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Email verification - ThoughtTronix{% endblock %}
+{% block content %}
+<div class="card bg-base-100 mx-auto max-w-lg"><div class="card-body">
+<h1 class="card-title">Email verification</h1>
+{% if verified %}<p>Email verified.</p>{% else %}<p>This link is invalid or expired. Sign in to the account that requested it to send another email.</p>{% endif %}
+{% if matching_account %}<a class="btn btn-primary" href="{% url 'products:catalog' %}">Continue shopping</a>
+{% else %}<a class="link" href="{% url 'accounts:login' %}">Sign in to your account</a>{% endif %}
+<a class="link" href="{% url 'accounts:verification_request' %}">Request another verification email</a>
+</div></div>
+{% endblock %}
