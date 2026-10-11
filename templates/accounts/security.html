@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Account security - ThoughtTronix{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-lg space-y-6">
+  <h1 class="text-2xl font-bold">Account security</h1>
+  <section class="card bg-base-100"><div class="card-body">
+    <h2 class="card-title">Recovery email</h2>
+    {% if user.email %}<p>{{ user.email }}</p>{% else %}<p>No email address added.</p>{% endif %}
+    {% if user.email_verified %}
+      <p class="badge badge-success">Verified</p>
+    {% else %}
+      <p class="badge badge-warning">Unverified</p>
+      <p>Add or verify your email to prepare your recovery address. Your account, cart, and order history stay available.</p>
+      {% if can_verify_email %}
+        <a class="btn btn-primary" href="{% url 'accounts:verification_request' %}">Verify email</a>
+      {% else %}<p>Add a valid available email before requesting verification.</p>{% endif %}
+      <a class="btn btn-outline" href="{% url 'accounts:email_correction' %}">Add or correct email</a>
+    {% endif %}
+  </div></section>
+  <section class="card bg-base-100"><div class="card-body">
+    <h2 class="card-title">Password</h2>
+    <p>Keep using your username and current password to sign in. Password changes and forgotten-password recovery will be available in a later update.</p>
+    <p>Recovery will require a verified email. If you lose inbox access, recover your email account first.</p>
+  </div></section>
+</div>
+{% endblock %}

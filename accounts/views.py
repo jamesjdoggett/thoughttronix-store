@@ -4,9 +4,9 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, TemplateView
+from django.views.generic import CreateView, FormView, TemplateView
 
-from .forms import SignInForm, SignupForm
+from .forms import EmailCorrectionForm, SignInForm, SignupForm
 from .verification import reserve_request, send_verification, verify_token
 
 
@@ -48,6 +48,11 @@ class SignupView(CreateView):
 class VerificationRequestView(LoginRequiredMixin, TemplateView):
     template_name = "accounts/verification_request.html"
 
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            can_verify_email=self.request.user.can_verify_email(), **kwargs
+        )
+
     def post(self, request, *args, **kwargs):
         messages.info(request, send_verification(request, request.user))
         return HttpResponseRedirect(reverse_lazy("accounts:verification_request"))
@@ -69,6 +74,67 @@ class VerifyEmailView(TemplateView):
 class SignInView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = SignInForm
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if not self.request.user.email_verified:
+            messages.info(
+                self.request,
+                "Add or verify your email in Account security to prepare your recovery address.",
+            )
+        return response
+
+
+class SecurityOverviewView(LoginRequiredMixin, TemplateView):
+    template_name = "accounts/security.html"
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            can_verify_email=self.request.user.can_verify_email(), **kwargs
+        )
+
+
+class EmailCorrectionView(LoginRequiredMixin, FormView):
+    template_name = "accounts/email_correction.html"
+    form_class = EmailCorrectionForm
+    success_url = reverse_lazy("accounts:security")
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def post(self, request, *args, **kwargs):
+        # Count invalid forms and suppressed sends as network requests as well.
+        self.send_allowed = reserve_request(
+            request.META.get("REMOTE_ADDR", "unknown"), network_only=True
+        )
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        try:
+            with transaction.atomic():
+                corrected = self.request.user.correct_unverified_email(
+                    form.cleaned_data["email"]
+                )
+        except IntegrityError:
+            form.add_error("email", "This email is unavailable")
+            return self.form_invalid(form)
+        if not corrected:
+            form.add_error(None, "Your account changed. Reload and try again.")
+            return self.form_invalid(form)
+        messages.success(
+            self.request, "Email address saved. Verify it using the emailed link."
+        )
+        if self.send_allowed:
+            messages.info(
+                self.request,
+                send_verification(self.request, self.request.user, count_network=False),
+            )
+        else:
+            messages.info(
+                self.request,
+                "Please wait before retrying; network email request limits apply.",
+            )
+        return super().form_valid(form)
 
 
 class SignOutView(LogoutView):

@@ -1,5 +1,21 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-11 - Account Security Center Phase 2
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store, including commands, architecture, template, URL, testing, and AI-usage-log conventions.
+2. "Read prd/account-security.md and plans/account-security.md. Implement Phase 2 only. Run automated checks and explain how to verify it manually in the browser. Do not begin Phase 3 or commit yet."
+3. "Phase 2 passed automated and manual verification. Append the standard session log to PROMPTS.md, then commit the phase and log as "Complete Account Security Center Phase 2". Push and confirm the working tree is clean."
+
+### Summary
+
+- **Outcome:** Implemented Phase 2 only: shared Account security navigation and overview for customers, employees, and administrators; current-email or missing-email state, verification status, and password guidance; an adoption prompt after unverified users sign in; and adding or correcting an unverified email after current-password confirmation. Reused Phase 1 verification, delivery, and request limits. Email validation normalizes casing and surrounding whitespace, with database uniqueness enforcement and conflict feedback. Added migration 0003 with an email revision counter so correction invalidates prior verification links permanently, including when returning to a former address. Conditional updates reject stale account state. Preserved legacy-address evidence, account identity, password hashes, carts, purchases, and historical order email snapshots. Suppressed or failed delivery preserves the corrected address and permits resend under existing limits. Added accounts/PHASE2.md with implementation notes and browser verification instructions. The migration was not applied to the local database by the agent. Phase 3 and later flows were not begun. Added this log above existing entries without rewriting history; the user authorized committing the phase and log with the exact requested message and pushing to origin.
+- **Verification:** The full automated suite passed **301 tests**, including new coverage for all roles, anonymous access, password validation, ownership isolation, legacy-address states, unavailable addresses, uniqueness-conflict feedback, stale links, delivery failure and retry, limits, verified-address protection, and preserved carts and orders. Ruff lint, changed-file formatting, Django system checks, migration consistency, production CSS rebuild, and git diff checks passed. Repository-wide Ruff formatting reported the pre-existing unchanged orders/test_coupon_selector.py; that unrelated file was left untouched.
+- **Browser confirmation:** The user explicitly confirmed that Phase 2 passed automated and manual verification. The user did not enumerate individual browser scenarios, so no additional scenario-specific browser results are claimed.
+- **Deviations and follow-up questions:** No design clarification or follow-up question was asked. The email revision counter implements the required invalidation after correction while retaining Phase 1's same-address resend policy. Password controls remain guidance until their planned phases. After successful verification, the user authorized the session log, commit, and push.
+- **Sideways:** uv initially failed because the sandbox could not access its external cache; approved escalation allowed migration generation and checks to run. Repository-wide format verification identified an unrelated existing formatting issue; changed-file formatting passed, and no unrelated formatting change was made. No automated test failures or user-requested implementation corrections occurred in this phase.
+
 ## 2026-10-11 - Account security Phase 1 implementation and console-link correction
 
 ### Prompts

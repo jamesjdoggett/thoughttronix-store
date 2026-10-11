@@ -32,3 +32,37 @@ class SignInForm(AuthenticationForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "input w-full"
+
+
+class EmailCorrectionForm(forms.Form):
+    """Validate an unverified account's address and current password."""
+
+    email = forms.EmailField(label="Email address")
+    current_password = forms.CharField(widget=forms.PasswordInput)
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input w-full"
+        self.fields["current_password"].widget.attrs["autocomplete"] = (
+            "current-password"
+        )
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.exclude(pk=self.user.pk).filter(email__iexact=email).exists():
+            raise forms.ValidationError("This email is unavailable")
+        return email
+
+    def clean_current_password(self):
+        password = self.cleaned_data["current_password"]
+        if not self.user.check_password(password):
+            raise forms.ValidationError("Your current password is incorrect.")
+        return password
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.user.email_verified:
+            raise forms.ValidationError("Your email is already verified.")
+        return cleaned

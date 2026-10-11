@@ -5,6 +5,10 @@ from . import views
 app_name = "accounts"
 
 urlpatterns = [
+    path("security/", views.SecurityOverviewView.as_view(), name="security"),
+    path(
+        "security/email/", views.EmailCorrectionView.as_view(), name="email_correction"
+    ),
     path(
         "security/verify/",
         views.VerificationRequestView.as_view(),

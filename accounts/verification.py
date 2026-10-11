@@ -21,16 +21,24 @@ def reserve_request(
     signup: bool = False,
     user: User | None = None,
     count_network: bool = True,
+    network_only: bool = False,
 ) -> bool:
     """Reserve security requests through the durable model manager."""
     return SecurityRequest.objects.reserve(
-        network, signup=signup, user=user, count_network=count_network
+        network,
+        signup=signup,
+        user=user,
+        count_network=count_network,
+        network_only=network_only,
     )
 
 
 def verification_token(user: User) -> str:
     """Sign an account and its current address with Django's timestamp signer."""
-    return signing.dumps({"user": user.pk, "email": user.email}, salt=SALT)
+    return signing.dumps(
+        {"user": user.pk, "email": user.email, "revision": user.email_revision},
+        salt=SALT,
+    )
 
 
 def verify_token(token: str) -> User | None:
@@ -42,10 +50,14 @@ def verify_token(token: str) -> User | None:
     with transaction.atomic():
         user = (
             User.objects.select_for_update()
-            .filter(pk=data["user"], email=data["email"])
+            .filter(
+                pk=data["user"],
+                email=data["email"],
+                email_revision=data.get("revision", 0),
+            )
             .first()
         )
-        if user is None or not user.email:
+        if user is None or not user.can_verify_email():
             return None
         user.email_verified = True
         user.save(update_fields=["email_verified"])
