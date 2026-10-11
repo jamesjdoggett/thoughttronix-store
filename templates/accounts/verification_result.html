@@ -3,9 +3,10 @@
 {% block content %}
 <div class="card bg-base-100 mx-auto max-w-lg"><div class="card-body">
 <h1 class="card-title">Email verification</h1>
-{% if verified %}<p>Email verified.</p>{% else %}<p>This link is invalid or expired. Sign in to the account that requested it to send another email.</p>{% endif %}
+<p role="status">{{ verification_message }}</p>
 {% if matching_account %}<a class="btn btn-primary" href="{% url 'products:catalog' %}">Continue shopping</a>
 {% else %}<a class="link" href="{% url 'accounts:login' %}">Sign in to your account</a>{% endif %}
 <a class="link" href="{% url 'accounts:verification_request' %}">Request another verification email</a>
+{% if user.is_authenticated %}<a class="link" href="{% url 'accounts:security' %}">Account security</a>{% endif %}
 </div></div>
 {% endblock %}

@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import timedelta
+from math import ceil
 from time import sleep
 
 from django.conf import settings
@@ -9,6 +11,40 @@ from django.db import OperationalError, models, transaction
 from django.db.models import F
 from django.db.models.functions import Lower, Trim
 from django.utils import timezone
+
+
+@dataclass(frozen=True)
+class SecurityRequestDecision:
+    """A reservation outcome with actionable, non-secret retry feedback."""
+
+    allowed: bool
+    reason: str = ""
+    retry_after: int = 0
+
+    def __bool__(self) -> bool:
+        return self.allowed
+
+    @property
+    def message(self) -> str:
+        """Explain suppression without revealing another account's identity."""
+        if self.reason == "verified":
+            return "Your email is already verified. No new email is needed."
+        if self.reason == "address":
+            return "Add or correct your email in Account security before requesting verification."
+        labels = {
+            "network": "network email request limits",
+            "signup": "signup attempt limits",
+            "account_hour": "the five-per-hour account email limit",
+            "destination_hour": "the five-per-hour destination email limit",
+            "account_cooldown": "the account email cooldown",
+            "destination_cooldown": "the destination email cooldown",
+        }
+        unit = "second" if self.retry_after == 1 else "seconds"
+        return (
+            f"Please wait {self.retry_after} {unit} before retrying because of "
+            f"{labels.get(self.reason, 'email request limits')}. "
+            "Retry from Verify email after this wait; repeated requests may extend network waits."
+        )
 
 
 class User(AbstractUser):
@@ -83,6 +119,26 @@ class SecurityRequestManager(models.Manager):
         count_network=True,
         network_only=False,
     ):
+        """Retain the boolean reservation API for existing callers."""
+        return bool(
+            self.reserve_result(
+                network,
+                signup=signup,
+                user=user,
+                count_network=count_network,
+                network_only=network_only,
+            )
+        )
+
+    def reserve_result(
+        self,
+        network: str,
+        *,
+        signup: bool = False,
+        user: User | None = None,
+        count_network: bool = True,
+        network_only: bool = False,
+    ) -> SecurityRequestDecision:
         """Retry transient SQLite lock contention without allowing extra sends."""
         for attempt in range(100):
             try:
@@ -107,13 +163,13 @@ class SecurityRequestManager(models.Manager):
         count_network=True,
         network_only=False,
     ):
-        now = timezone.now()
         with transaction.atomic():
             updated = SecurityRequestLock.objects.filter(pk=1).update(
                 revision=F("revision") + 1
             )
             if not updated:
                 SecurityRequestLock.objects.create(pk=1)
+            now = timezone.now()
             recent = SecurityRequest.objects.filter(
                 created_at__gt=now - timedelta(hours=1)
             )
@@ -123,37 +179,72 @@ class SecurityRequestManager(models.Manager):
                     kind="network", key=network, created_at=now
                 )
             if count_network and count >= settings.SECURITY_EMAIL_NETWORK_LIMIT:
-                return False
+                return self._wait(
+                    recent.filter(kind="network", key=network),
+                    settings.SECURITY_EMAIL_NETWORK_LIMIT,
+                    now,
+                    "network",
+                )
             if network_only:
-                return True
+                return SecurityRequestDecision(True)
             if signup:
                 count = recent.filter(kind="signup", key=network).count()
                 SecurityRequest.objects.create(
                     kind="signup", key=network, created_at=now
                 )
-                return count < settings.SECURITY_SIGNUP_LIMIT
-            if user is None or user.email_verified or not user.can_verify_email():
-                return False
-            try:
-                validate_email(user.email)
-            except ValidationError:
-                return False
+                if count >= settings.SECURITY_SIGNUP_LIMIT:
+                    return self._wait(
+                        recent.filter(kind="signup", key=network),
+                        settings.SECURITY_SIGNUP_LIMIT,
+                        now,
+                        "signup",
+                    )
+                return SecurityRequestDecision(True)
+            if user is not None:
+                user.refresh_from_db()
+            if user is not None and user.email_verified:
+                return SecurityRequestDecision(False, "verified")
+            if user is None or not user.can_verify_email():
+                return SecurityRequestDecision(False, "address")
             keys = [
                 ("account", str(user.pk)),
                 ("destination", user.email.strip().lower()),
             ]
+            waits = []
             for kind, key in keys:
                 attempts = recent.filter(kind=kind, key=key)
-                if (
-                    attempts.count() >= 5
-                    or attempts.filter(
-                        created_at__gt=now - timedelta(seconds=60)
-                    ).exists()
-                ):
-                    return False
+                if attempts.count() >= 5:
+                    waits.append(self._wait(attempts, 5, now, f"{kind}_hour"))
+                last = attempts.order_by("-created_at").first()
+                if last and last.created_at > now - timedelta(seconds=60):
+                    waits.append(
+                        SecurityRequestDecision(
+                            False,
+                            f"{kind}_cooldown",
+                            ceil(
+                                (
+                                    last.created_at + timedelta(seconds=60) - now
+                                ).total_seconds()
+                            ),
+                        )
+                    )
+            if waits:
+                return max(waits, key=lambda decision: decision.retry_after)
             for kind, key in keys:
                 SecurityRequest.objects.create(kind=kind, key=key, created_at=now)
-            return True
+            return SecurityRequestDecision(True)
+
+    def _wait(self, attempts, limit, now, reason):
+        # Suppressed network/signup attempts count too, including this request.
+        dates = list(
+            attempts.order_by("created_at").values_list("created_at", flat=True)
+        )
+        release = dates[max(0, len(dates) - limit)] if limit > 0 else now
+        return SecurityRequestDecision(
+            False,
+            reason,
+            max(1, ceil((release + timedelta(hours=1) - now).total_seconds())),
+        )
 
 
 class SecurityRequest(models.Model):

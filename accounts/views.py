@@ -7,7 +7,8 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView, FormView, TemplateView
 
 from .forms import EmailCorrectionForm, SignInForm, SignupForm
-from .verification import reserve_request, send_verification, verify_token
+from .models import SecurityRequest
+from .verification import reserve_request, send_verification, verify_email_link
 
 
 class SignupView(CreateView):
@@ -63,7 +64,10 @@ class VerifyEmailView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = verify_token(kwargs["token"])
+        result = verify_email_link(kwargs["token"])
+        user = result.user
+        context["verification_message"] = result.message
+        context["verification_status"] = result.status
         context["verified"] = user is not None
         context["matching_account"] = (
             user is not None and self.request.user.pk == user.pk
@@ -104,7 +108,7 @@ class EmailCorrectionView(LoginRequiredMixin, FormView):
 
     def post(self, request, *args, **kwargs):
         # Count invalid forms and suppressed sends as network requests as well.
-        self.send_allowed = reserve_request(
+        self.send_decision = SecurityRequest.objects.reserve_result(
             request.META.get("REMOTE_ADDR", "unknown"), network_only=True
         )
         return super().post(request, *args, **kwargs)
@@ -124,7 +128,7 @@ class EmailCorrectionView(LoginRequiredMixin, FormView):
         messages.success(
             self.request, "Email address saved. Verify it using the emailed link."
         )
-        if self.send_allowed:
+        if self.send_decision:
             messages.info(
                 self.request,
                 send_verification(self.request, self.request.user, count_network=False),
@@ -132,7 +136,7 @@ class EmailCorrectionView(LoginRequiredMixin, FormView):
         else:
             messages.info(
                 self.request,
-                "Please wait before retrying; network email request limits apply.",
+                self.send_decision.message,
             )
         return super().form_valid(form)
 
