@@ -1,5 +1,86 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-11 - Account Security Center tracer-bullet plan
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store, including commands, architecture, template, URL, and testing conventions.
+2. "$prd-to-plan
+
+   Read prd/account-security-center.md and create a tracer-bullet implementation plan. Propose the phases and ask me to review their granularity before writing the plan. After I approve, save it to plans/account-security.md. Do not implement anything."
+3. Supplied the prd-to-plan skill instructions: inspect the PRD and codebase, identify durable architectural decisions, propose independently usable vertical slices with user-story mappings, obtain granularity approval, and then write the Markdown plan with acceptance criteria.
+4. "The seven-phase granularity feels right. Keep the phases separate, but include basic resend, expired-link guidance, and retry after delivery failure in Phase 1 so initial verification is a complete usable flow. Phase 3 can finish detailed rate-limit feedback and remaining failure cases. Enforce the required request limits from the first exposed email flow.
+
+   With that adjustment, I approve the breakdown. Write plans/account-security.md. Do not implement anything."
+5. "Append a session log to PROMPTS.md at the repo root, under today's date, newest entry at the top. Record every prompt I gave you this session, in order, including corrections. End with the outcome, deviations or follow-up questions, and anything that went sideways.
+
+   Include that I reviewed the seven proposed phases and requested basic resend, expired-link guidance, delivery-failure retry, and required request limits in Phase 1 before approving.
+
+   Record the comparison: the naive plan delayed customer behavior behind a foundations phase and combined password changes and recovery; the final plan delivers signup and verification first and separates those password flows.
+
+   Do not implement anything."
+
+### Summary
+
+- **Outcome:** Read the PRD, planning skill, repository instructions, and existing account, checkout, settings, template, and test patterns. Proposed seven phases with user-story mappings, waited for approval, and created plans/account-security.md with durable architectural decisions and acceptance criteria. The final phases are signup and initial verification; security overview and existing-account adoption; verification feedback and remaining failure cases; verified checkout and continuation; replacement email lifecycle; signed-in password changes; and forgotten-password recovery. Added this log above existing entries without rewriting them. No application implementation, migrations, seed, tests, commit, or push was performed.
+- **Deviations and follow-up questions:** Asked whether the seven phases were too coarse or too fine and whether any should be merged or split. The user reviewed and retained all seven, but required basic resend, expired-link guidance, delivery-failure retry, and required request limits in Phase 1 before approving. Phase 3 retains detailed rate-limit feedback and remaining failure cases. The saved plan reflects that adjustment. As requested in the logging prompt, the comparison is: the naive plan delayed customer behavior behind a foundations phase and combined password changes and recovery; the final plan delivers signup and verification first and separates those password flows. The naive plan itself was not presented or created in this session.
+- **Sideways:** No tool failures occurred. One broad repository read was truncated; no application or browser verification was claimed. Existing modifications to PROMPTS.md and untracked skill/PRD files were observed and preserved. Planning details left open by the PRD, including the numeric signup-attempt limit, same-address verification-resend invalidation policy, and operational legacy-duplicate resolution, remain implementation decisions rather than invented approved requirements.
+
+## 2026-10-11 - Account Security Center design interview and PRD
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context for the ThoughtTronix Store, including commands, architecture, template, URL, and testing conventions.
+2. "$grill-me
+
+   I want to design an Account Security Center for ThoughtTronix. Customers need to provide an email address when signing up, change their password, and reset a forgotten password through email.
+
+   Help me work out how these features should behave. Recommend one or two additional account security features that would be useful for our store, and discuss them with me before including them.
+
+   Only interview me and help settle the design for now. Do not write a PRD, implementation plan, or other documentation, and do not implement anything yet. We will use $to-prd after the interview."
+3. Supplied the grill-me skill instructions: interview one question at a time, assume beginner knowledge, state the decision being settled, explain options and tradeoffs, recommend an option with reasons, and explore the codebase for questions it can answer.
+4. Supplied the to-prd skill instructions and PRD template for later use: synthesize agreed context without interviewing, inspect the repository, and save a PRD with Problem Statement, Solution, User Stories, Implementation Decisions, Out of Scope, and Further Notes; omit specific file paths and code snippets from implementation decisions.
+5. "1" — keep username login and require a unique email at signup.
+6. "1" — include email verification before shopping with the account.
+7. "1" — allow sign-in, browsing, and cart use before verification; block checkout until verified.
+8. "1" — allow correction of an unverified email after password confirmation, sending a new link and invalidating links for the previous address.
+9. "1" — allow verified email changes with password confirmation and verification of the replacement; retain the old address until completion and notify it afterward.
+10. "1" — prompt existing users for email setup after sign-in, retaining account, cart, and order-history access while requiring verification before checkout.
+11. "1" — require the current password and the new password entered twice for normal password changes.
+12. "1" — preserve the current session and sign out other sessions after a normal change; sign out all sessions and require sign-in after a reset.
+13. "1" — use a generic reset-request confirmation and send reset email only to verified account addresses.
+14. "3" — make password-reset links expire after 24 hours rather than the recommended 30 minutes.
+15. "1" — retain earlier reset links until expiration or a password change/reset; using one invalidates them all.
+16. "1" — include password-change email alerts after both normal changes and resets, without passwords or reset links.
+17. "1" — make email-verification links expire after 24 hours, with resending available.
+18. "1" — use a 60-second cooldown and five sends per hour per account or destination, supplemented by a network-address limit; retain generic reset responses when limited.
+19. "1" — retain the existing eight-character minimum and other existing password checks rather than the recommended 12-character minimum.
+20. "1" — exclude alternative/manual recovery from this release when the customer cannot access their verified inbox; suggest recovering the email account first.
+21. "1" — apply the Security Center and email recovery to customers, employees, and administrators; require verification for anyone checking out through the storefront.
+22. "1" — support configurable real email delivery and retain console delivery for local development.
+23. "1" — provide one Security Center overview with email, verification status, password controls, and pending replacement email, with dedicated forms and a signed-in navigation link.
+24. "1" — allow cancellation or replacement of a pending email change, invalidating its links while retaining the current verified email and checkout access.
+25. "1" — verify email without automatic sign-in; offer checkout continuation for the matching signed-in account or direct the user to sign in.
+26. "1" — disclose email unavailability at signup with sign-in and reset links, accepting the stated privacy tradeoff and limiting repeated attempts.
+27. "1" — do not reserve addresses for pending changes; assign only on successful verification and an availability check, with the first successful verification claiming the address.
+28. "1" — require verification of all existing email addresses; missing, invalid, or duplicate addresses must be corrected first.
+29. "1" — ignore capitalization and surrounding spaces when matching emails, preserving dots and plus suffixes.
+30. "1" — preserve accounts and pending changes when email delivery fails, allow retry, retain generic reset responses, and do not undo successful password changes when alerts fail.
+31. "1" — invalidate outstanding reset and verification links when an email change completes, and cancel pending email changes after a password reset.
+32. "1" — set a configurable network limit of 30 email requests per hour per network address, counting requests even when no email is sent.
+33. "$to-prd
+
+   Create a new PRD in prd/ using the decisions from our interview. Do not create an implementation plan or implement anything yet."
+34. Supplied the to-prd skill instructions and template again, requiring synthesis of the agreed conversation into a local PRD without further interviewing.
+35. "Clarify that the implementation plan and implementation are deferred to later assignment steps, rather than out of scope for the feature."
+36. "Append a session log to PROMPTS.md at the repo root, under today's date, newest entry at the top. Record every prompt I gave you this session, in order, including any corrections. End the entry with a short summary: the outcome, any places where I deviated from a recommended answer or asked follow-up questions, and anything that went sideways."
+
+### Summary
+
+- **Outcome:** Completed the one-question-at-a-time design interview and created prd/account-security-center.md using the requested template. Agreed on required unique email, verification-gated checkout, email management, password changes and resets, session invalidation, email verification and password-change alerts, request limits, existing-account transition, staff access, and configurable delivery. Preserved prior log entries and placed this entry first. No implementation plan, application changes, tests, seed, commit, or push were performed.
+- **Deviations and follow-ups:** The user chose 24-hour reset links instead of the recommended 30 minutes and retained the existing eight-character password minimum instead of the recommended 12. All other selected interview answers matched the recommendations. The user then requested the PRD and corrected its scope wording: implementation planning and implementation are deferred to later assignment steps, not excluded from the feature. Updated the PRD accordingly.
+- **Sideways:** No tool failures or implementation issues occurred. The initial PRD placed deferred planning/implementation under Out of Scope; the user's correction moved that distinction into Further Notes. The PRD explicitly identifies details not settled in the interview: a numeric signup-attempt limit, whether resending verification invalidates prior links for an unchanged address, and the operational handling of existing duplicate email records. Inspected repository code and documentation only; no application or browser verification was claimed. The pre-existing untracked to-prd skill directory was left untouched.
+
 ## 2026-10-04 - Product-image build, marketing import, and reflection evidence
 
 ### Prompts
