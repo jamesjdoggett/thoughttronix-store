@@ -59,6 +59,8 @@ class User(AbstractUser):
 
     email_verified = models.BooleanField(default=False)
     email_revision = models.PositiveBigIntegerField(default=0)
+    pending_email = models.EmailField(blank=True)
+    pending_email_revision = models.PositiveBigIntegerField(default=0)
     legacy_email = models.TextField(blank=True, editable=False)
 
     class Meta(AbstractUser.Meta):
@@ -97,6 +99,20 @@ class User(AbstractUser):
         self.refresh_from_db()
         return bool(updated)
 
+    def stage_email_replacement(self, email):
+        """Replace or cancel only the pending request the caller observed."""
+        updated = User.objects.filter(
+            pk=self.pk,
+            email_verified=True,
+            password=self.password,
+            email_revision=self.email_revision,
+            pending_email_revision=self.pending_email_revision,
+        ).update(
+            pending_email=email, pending_email_revision=F("pending_email_revision") + 1
+        )
+        self.refresh_from_db()
+        return bool(updated)
+
 
 class SecurityRequestLock(models.Model):
     """A singleton database mutex serializes security request reservations."""
@@ -118,6 +134,7 @@ class SecurityRequestManager(models.Manager):
         user=None,
         count_network=True,
         network_only=False,
+        pending=False,
     ):
         """Retain the boolean reservation API for existing callers."""
         return bool(
@@ -127,6 +144,7 @@ class SecurityRequestManager(models.Manager):
                 user=user,
                 count_network=count_network,
                 network_only=network_only,
+                pending=pending,
             )
         )
 
@@ -138,6 +156,7 @@ class SecurityRequestManager(models.Manager):
         user: User | None = None,
         count_network: bool = True,
         network_only: bool = False,
+        pending: bool = False,
     ) -> SecurityRequestDecision:
         """Retry transient SQLite lock contention without allowing extra sends."""
         for attempt in range(100):
@@ -148,6 +167,7 @@ class SecurityRequestManager(models.Manager):
                     user=user,
                     count_network=count_network,
                     network_only=network_only,
+                    pending=pending,
                 )
             except OperationalError as error:
                 if "locked" not in str(error).lower() or attempt == 99:
@@ -162,6 +182,7 @@ class SecurityRequestManager(models.Manager):
         user=None,
         count_network=True,
         network_only=False,
+        pending=False,
     ):
         with transaction.atomic():
             updated = SecurityRequestLock.objects.filter(pk=1).update(
@@ -202,13 +223,20 @@ class SecurityRequestManager(models.Manager):
                 return SecurityRequestDecision(True)
             if user is not None:
                 user.refresh_from_db()
-            if user is not None and user.email_verified:
+            if user is not None and user.email_verified and not pending:
                 return SecurityRequestDecision(False, "verified")
-            if user is None or not user.can_verify_email():
+            if (
+                user is None
+                or (not pending and not user.can_verify_email())
+                or (pending and (not user.email_verified or not user.pending_email))
+            ):
                 return SecurityRequestDecision(False, "address")
             keys = [
                 ("account", str(user.pk)),
-                ("destination", user.email.strip().lower()),
+                (
+                    "destination",
+                    (user.pending_email if pending else user.email).strip().lower(),
+                ),
             ]
             waits = []
             for kind, key in keys:

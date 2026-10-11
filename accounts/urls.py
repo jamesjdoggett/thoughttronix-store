@@ -5,6 +5,16 @@ from . import views
 app_name = "accounts"
 
 urlpatterns = [
+    path(
+        "security/email/replace/",
+        views.EmailReplacementView.as_view(),
+        name="email_replacement",
+    ),
+    path(
+        "security/email/cancel/",
+        views.CancelEmailReplacementView.as_view(),
+        name="email_replacement_cancel",
+    ),
     path("security/", views.SecurityOverviewView.as_view(), name="security"),
     path(
         "security/email/", views.EmailCorrectionView.as_view(), name="email_correction"

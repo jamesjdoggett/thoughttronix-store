@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Change email - ThoughtTronix{% endblock %}
+{% block content %}
+{% if checkout_next %}<div class="alert mb-6"><p>{% if not user.email_verified %}<a class="link" href="{% url 'orders:checkout' %}">Continue to checkout</a>{% else %}Verify your email to continue to checkout. Your cart is saved.{% endif %}</p></div>{% endif %}
+<div class="card bg-base-100 mx-auto max-w-lg"><div class="card-body">
+  <h1 class="card-title">Change email</h1>
+  {% if not user.email_verified %}
+    <p>Verify your current email before replacing it.</p>
+  {% else %}
+    <p>Confirm your current password to request a replacement. Your verified email stays active until the replacement is verified. Saving another replacement invalidates earlier pending links.</p>
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      {% for error in form.non_field_errors %}<p class="text-error" role="alert">{{ error }}</p>{% endfor %}
+      {% for field in form %}
+        <div><label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+        {% for error in field.errors %}<p class="text-error" role="alert">{{ error }}</p>{% endfor %}</div>
+      {% endfor %}
+      <button class="btn btn-primary" type="submit">Save and send verification</button>
+    </form>
+  {% endif %}
+  <a class="link" href="{% url 'accounts:security' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Account security</a>
+</div></div>
+{% endblock %}

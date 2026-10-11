@@ -9,6 +9,13 @@
     {% if user.email %}<p>{{ user.email }}</p>{% else %}<p>No email address added.</p>{% endif %}
     {% if user.email_verified %}
       <p class="badge badge-success">Verified</p>
+      <a class="btn btn-outline" href="{% url 'accounts:email_replacement' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Change email</a>
+      {% if user.pending_email %}
+        <h3 class="font-bold">Pending replacement</h3>
+        <p>{{ user.pending_email }} ? awaiting verification. Your current email remains active for recovery and checkout.</p>
+        <a class="btn btn-primary" href="{% url 'accounts:verification_request' %}">Verify replacement email</a>
+        <form method="post" action="{% url 'accounts:email_replacement_cancel' %}">{% csrf_token %}<button class="btn btn-outline" type="submit">Cancel pending change</button></form>
+      {% endif %}
     {% else %}
       <p class="badge badge-warning">Unverified</p>
       <p>Add or verify your email to prepare your recovery address. Your account, cart, and order history stay available.</p>

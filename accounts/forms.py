@@ -66,3 +66,17 @@ class EmailCorrectionForm(forms.Form):
         if self.user.email_verified:
             raise forms.ValidationError("Your email is already verified.")
         return cleaned
+
+
+class EmailReplacementForm(EmailCorrectionForm):
+    """Confirm ownership credentials before staging a new recovery address."""
+
+    def clean(self):
+        cleaned = forms.Form.clean(self)
+        if not self.user.email_verified:
+            raise forms.ValidationError(
+                "Verify your current email before replacing it."
+            )
+        if cleaned.get("email") == self.user.email:
+            self.add_error("email", "Choose a different email address.")
+        return cleaned

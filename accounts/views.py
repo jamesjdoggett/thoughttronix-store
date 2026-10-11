@@ -6,7 +6,7 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, FormView, TemplateView
 
-from .forms import EmailCorrectionForm, SignInForm, SignupForm
+from .forms import EmailCorrectionForm, EmailReplacementForm, SignInForm, SignupForm
 from .models import SecurityRequest
 from .verification import reserve_request, send_verification, verify_email_link
 
@@ -167,3 +167,44 @@ class SignOutView(LogoutView):
         response = super().post(request, *args, **kwargs)
         messages.info(request, "You have signed out.")
         return response
+
+
+class EmailReplacementView(EmailCorrectionView):
+    """Stage a replacement while preserving the verified current address."""
+
+    template_name = "accounts/email_replacement.html"
+    form_class = EmailReplacementForm
+
+    def form_valid(self, form):
+        if not self.request.user.stage_email_replacement(form.cleaned_data["email"]):
+            form.add_error(None, "Your account changed. Reload and try again.")
+            return self.form_invalid(form)
+        messages.success(
+            self.request,
+            "Replacement saved. Your current verified email stays active until verification.",
+        )
+        messages.info(
+            self.request,
+            send_verification(self.request, self.request.user, count_network=False)
+            if self.send_decision
+            else self.send_decision.message,
+        )
+        return HttpResponseRedirect(self.get_success_url())
+
+
+class CancelEmailReplacementView(
+    CheckoutContinuationMixin, LoginRequiredMixin, TemplateView
+):
+    """Cancel only the signed-in account's pending replacement."""
+
+    success_url = reverse_lazy("accounts:security")
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        if request.user.stage_email_replacement(""):
+            messages.success(
+                request, "Pending email change cancelled. Its links no longer work."
+            )
+        else:
+            messages.info(request, "Your account changed. Reload and try again.")
+        return HttpResponseRedirect(self.get_success_url())

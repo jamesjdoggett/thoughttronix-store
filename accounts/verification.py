@@ -7,7 +7,7 @@ from time import sleep
 from django.conf import settings
 from django.core import signing
 from django.core.mail import send_mail
-from django.db import OperationalError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import F
 from django.http import HttpRequest
 from django.urls import reverse
@@ -30,6 +30,7 @@ class VerificationResult:
         """Describe the link's outcome and the next available action."""
         return {
             "verified": "Email verified.",
+            "unavailable": "This replacement email is unavailable. Sign in to Account security and choose another address.",
             "already_verified": "This email is already verified. You do not need another link.",
             "expired": "This verification link has expired after 24 hours. Sign in to the account that requested it to send another email.",
             "superseded": "This verification link was invalidated by an email correction or is no longer available. Sign in and verify your current address.",
@@ -58,7 +59,13 @@ def reserve_request(
 def verification_token(user: User) -> str:
     """Sign an account and its current address with Django's timestamp signer."""
     return signing.dumps(
-        {"user": user.pk, "email": user.email, "revision": user.email_revision},
+        {
+            "user": user.pk,
+            "email": user.email,
+            "revision": user.email_revision,
+            "pending": user.pending_email if user.email_verified else "",
+            "pending_revision": user.pending_email_revision,
+        },
         salt=SALT,
     )
 
@@ -83,6 +90,11 @@ def verify_email_link(token: str) -> VerificationResult:
         or not isinstance(data.get("email"), str)
         or type(data.get("revision", 0)) is not int
         or not 0 <= data.get("revision", 0) <= 9223372036854775807
+    ):
+        return VerificationResult("invalid")
+    if "pending" in data and (
+        not isinstance(data["pending"], str)
+        or type(data.get("pending_revision")) is not int
     ):
         return VerificationResult("invalid")
     for attempt in range(100):
@@ -111,6 +123,32 @@ def _verify_address(data):
             )
             .first()
         )
+        if user is not None and data.get("pending"):
+            if (
+                not user.email_verified
+                or user.pending_email != data["pending"]
+                or user.pending_email_revision != data["pending_revision"]
+            ):
+                return VerificationResult("superseded")
+            old_email = user.email
+            try:
+                with transaction.atomic():
+                    user.email = user.pending_email
+                    user.pending_email = ""
+                    user.email_revision += 1
+                    user.pending_email_revision += 1
+                    user.save(
+                        update_fields=[
+                            "email",
+                            "pending_email",
+                            "email_revision",
+                            "pending_email_revision",
+                        ]
+                    )
+            except IntegrityError:
+                return VerificationResult("unavailable")
+            transaction.on_commit(lambda: notify_old_address(old_email, user.pk))
+            return VerificationResult("verified", user)
         if user is None or not user.can_verify_email():
             return VerificationResult("superseded")
         if user.email_verified:
@@ -128,6 +166,7 @@ def send_verification(
         request.META.get("REMOTE_ADDR", "unknown"),
         user=user,
         count_network=count_network,
+        pending=user.email_verified and bool(user.pending_email),
     )
     if not decision:
         return decision.message
@@ -139,7 +178,7 @@ def send_verification(
             "Verify your ThoughtTronix email",
             f"Verify your email within 24 hours: {link}\nThis link does not sign you in.",
             settings.DEFAULT_FROM_EMAIL,
-            [user.email],
+            [user.pending_email if user.email_verified else user.email],
         )
         if not sent:
             raise OSError("Email backend did not accept the message")
@@ -147,3 +186,17 @@ def send_verification(
         logger.exception("Verification email delivery failed for account %s", user.pk)
         return "Email delivery failed. Your email address and account are saved. Retry from Verify email after 60 seconds; hourly and network limits still apply."
     return "Verification email sent. Check your inbox; the link expires in 24 hours."
+
+
+def notify_old_address(email: str, user_id: int) -> None:
+    """Report completed replacement without coupling delivery to the claim."""
+    try:
+        if not send_mail(
+            "Your ThoughtTronix email changed",
+            "Your recovery email was changed. If you did not request this, review your account security.",
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+        ):
+            raise OSError("Email backend did not accept the message")
+    except Exception:
+        logger.exception("Email change notification failed for account %s", user_id)
