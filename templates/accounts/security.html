@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Account security - ThoughtTronix{% endblock %}
 {% block content %}
+{% if checkout_next %}<div class="alert mb-6"><p>{% if user.email_verified %}<a class="link" href="{% url 'orders:checkout' %}">Continue to checkout</a>{% else %}Verify your email to continue to checkout. Your cart is saved.{% endif %}</p></div>{% endif %}
 <div class="mx-auto max-w-lg space-y-6">
   <h1 class="text-2xl font-bold">Account security</h1>
   <section class="card bg-base-100"><div class="card-body">
@@ -12,9 +13,9 @@
       <p class="badge badge-warning">Unverified</p>
       <p>Add or verify your email to prepare your recovery address. Your account, cart, and order history stay available.</p>
       {% if can_verify_email %}
-        <a class="btn btn-primary" href="{% url 'accounts:verification_request' %}">Verify email</a>
+        <a class="btn btn-primary" href="{% url 'accounts:verification_request' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Verify email</a>
       {% else %}<p>Add a valid available email before requesting verification.</p>{% endif %}
-      <a class="btn btn-outline" href="{% url 'accounts:email_correction' %}">Add or correct email</a>
+      <a class="btn btn-outline" href="{% url 'accounts:email_correction' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Add or correct email</a>
     {% endif %}
   </div></section>
   <section class="card bg-base-100"><div class="card-body">

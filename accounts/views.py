@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, FormView, TemplateView
 
 from .forms import EmailCorrectionForm, SignInForm, SignupForm
@@ -46,8 +46,27 @@ class SignupView(CreateView):
         return HttpResponseRedirect(self.get_success_url())
 
 
-class VerificationRequestView(LoginRequiredMixin, TemplateView):
+class CheckoutContinuationMixin:
+    """Carry only the named checkout destination through signed-in controls."""
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            checkout_next=self.request.GET.get("next") == reverse("orders:checkout"),
+            **kwargs,
+        )
+
+    def get_success_url(self):
+        destination = str(self.success_url)
+        if self.request.GET.get("next") == reverse("orders:checkout"):
+            destination += "?next=" + reverse("orders:checkout")
+        return destination
+
+
+class VerificationRequestView(
+    CheckoutContinuationMixin, LoginRequiredMixin, TemplateView
+):
     template_name = "accounts/verification_request.html"
+    success_url = reverse_lazy("accounts:verification_request")
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(
@@ -56,7 +75,7 @@ class VerificationRequestView(LoginRequiredMixin, TemplateView):
 
     def post(self, request, *args, **kwargs):
         messages.info(request, send_verification(request, request.user))
-        return HttpResponseRedirect(reverse_lazy("accounts:verification_request"))
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class VerifyEmailView(TemplateView):
@@ -89,7 +108,7 @@ class SignInView(LoginView):
         return response
 
 
-class SecurityOverviewView(LoginRequiredMixin, TemplateView):
+class SecurityOverviewView(CheckoutContinuationMixin, LoginRequiredMixin, TemplateView):
     template_name = "accounts/security.html"
 
     def get_context_data(self, **kwargs):
@@ -98,7 +117,7 @@ class SecurityOverviewView(LoginRequiredMixin, TemplateView):
         )
 
 
-class EmailCorrectionView(LoginRequiredMixin, FormView):
+class EmailCorrectionView(CheckoutContinuationMixin, LoginRequiredMixin, FormView):
     template_name = "accounts/email_correction.html"
     form_class = EmailCorrectionForm
     success_url = reverse_lazy("accounts:security")

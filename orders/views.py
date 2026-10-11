@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db import OperationalError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -109,6 +110,17 @@ class CheckoutView(LoginRequiredMixin, FormView):
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return super().dispatch(request, *args, **kwargs)
+        if not request.user.email_verified:
+            messages.warning(
+                request,
+                "Verify your email before checkout. Add or correct your address and request verification in Account security. Your cart is saved.",
+            )
+            destination = (
+                reverse("accounts:security") + "?next=" + reverse("orders:checkout")
+            )
+            if request.headers.get("HX-Request") == "true":
+                return HttpResponse(headers={"HX-Redirect": destination})
+            return redirect(destination)
         cart = Cart.for_user(request.user)
         if not cart.items.exists():
             messages.info(request, "Your cart is empty — add something first.")

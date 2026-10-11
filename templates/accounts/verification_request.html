@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Verify email - ThoughtTronix{% endblock %}
 {% block content %}
+{% if checkout_next %}<div class="alert mb-6"><p>{% if user.email_verified %}<a class="link" href="{% url 'orders:checkout' %}">Continue to checkout</a>{% else %}Verify your email to continue to checkout. Your cart is saved.{% endif %}</p></div>{% endif %}
 <div class="card bg-base-100 mx-auto max-w-lg"><div class="card-body">
 <h1 class="card-title">Verify email</h1>
 <p>Check your inbox and spam folder. Resending keeps earlier links to your unchanged address usable for 24 hours. Correcting your address invalidates its old links.</p>
@@ -9,7 +10,7 @@
 {% elif can_verify_email %}<p>Send a verification link to {{ user.email }}. Links expire after 24 hours.</p>
 <form method="post">{% csrf_token %}<button class="btn btn-primary" type="submit">Send verification email</button></form>
 {% else %}<p>Your account has no usable email address. Add or correct your address before verification.</p>{% endif %}
-<a class="link" href="{% url 'accounts:security' %}">Account security</a>
+<a class="link" href="{% url 'accounts:security' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Account security</a>
 <a class="link" href="{% url 'products:catalog' %}">Continue shopping</a>
 </div></div>
 {% endblock %}

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractBaseUser
 from django.core import signing
 from django.db import transaction
@@ -176,7 +177,8 @@ def place_order(
     All-or-nothing: runs in a transaction, so a failure partway through
     leaves no partial order and the cart intact.
 
-    Raises ``ValueError`` for invalid carts/coupons or changed pricing.
+    Raises ``ValueError`` for unverified accounts, invalid carts/coupons,
+    or changed pricing.
     Browser callers must supply the signed preview as ``expected_snapshot``.
     Trusted callers may omit it. No-code callers retain regular checkout.
     """
@@ -185,6 +187,9 @@ def place_order(
     # Acquire the write lock before reading prices, including on SQLite where
     # select_for_update alone does not lock. Concurrent submissions serialize.
     Cart.objects.filter(pk=cart.pk).update(coupon_code=F("coupon_code"))
+    # Check persisted eligibility while holding the transaction's write lock.
+    if not get_user_model().objects.filter(pk=user.pk, email_verified=True).exists():
+        raise ValueError("Verify your email in Account security before checkout.")
     if expected_snapshot is not None:
         cart.refresh_from_db(fields=["coupon_code"])
         if cart.coupon_code != Coupon.normalize_code(coupon_code):

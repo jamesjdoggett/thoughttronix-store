@@ -94,7 +94,7 @@ def test_matching_and_other_signed_in_accounts(client, customer, staff_user):
     assert "Sign in to your account" in response.content.decode()
     client.force_login(customer)
     response = client.get(reverse("accounts:verify_email", args=[token]))
-    assert "Continue shopping" in response.content.decode()
+    assert "Continue to checkout" in response.content.decode()
 
 
 def test_invalid_and_expired_links(client, customer):
