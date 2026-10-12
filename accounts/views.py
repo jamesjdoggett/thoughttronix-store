@@ -1,6 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
+from django.contrib.auth.views import (
+    INTERNAL_RESET_SESSION_TOKEN,
+    LoginView,
+    LogoutView,
+    PasswordChangeView,
+    PasswordResetConfirmView,
+)
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
@@ -9,12 +15,15 @@ from django.views.generic import CreateView, FormView, TemplateView
 from .forms import (
     EmailCorrectionForm,
     EmailReplacementForm,
+    RecoveryPasswordForm,
+    RecoveryRequestForm,
     SecurityPasswordChangeForm,
     SignInForm,
     SignupForm,
 )
 from .models import SecurityRequest
 from .passwords import send_password_change_alert
+from .recovery import recovery_token_generator, reset_password, send_recovery
 from .verification import reserve_request, send_verification, verify_email_link
 
 
@@ -230,4 +239,52 @@ class CancelEmailReplacementView(
             )
         else:
             messages.info(request, "Your account changed. Reload and try again.")
+        return HttpResponseRedirect(self.get_success_url())
+
+
+class RecoveryRequestView(FormView):
+    """Always show the same confirmation for submitted recovery requests."""
+
+    template_name = "accounts/password_reset.html"
+    form_class = RecoveryRequestForm
+    success_url = reverse_lazy("accounts:password_reset_done")
+
+    def form_valid(self, form):
+        send_recovery(self.request, form.cleaned_data["email"])
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        send_recovery(self.request, "")
+        return HttpResponseRedirect(self.get_success_url())
+
+
+class RecoveryConfirmView(PasswordResetConfirmView):
+    """Let Django verify and hide tokens; retain atomic account transitions."""
+
+    template_name = "accounts/password_reset_confirm.html"
+    form_class = RecoveryPasswordForm
+    token_generator = recovery_token_generator
+    success_url = reverse_lazy("accounts:login")
+
+    def get_user(self, uidb64):
+        user = super().get_user(uidb64)
+        if (
+            user
+            and user.is_active
+            and user.email_verified
+            and user.has_usable_password()
+            and user.can_verify_email()
+        ):
+            return user
+        return None
+
+    def form_valid(self, form):
+        if not reset_password(self.user, form.cleaned_data["new_password1"]):
+            self.validlink = False
+            return self.render_to_response(self.get_context_data())
+        self.request.session.pop(INTERNAL_RESET_SESSION_TOKEN, None)
+        messages.success(
+            self.request,
+            "Password reset. All sessions have been signed out. Sign in with your username and new password.",
+        )
         return HttpResponseRedirect(self.get_success_url())

@@ -55,7 +55,8 @@ def test_multiple_selections_save_and_survive_invalid_edit(
     assert response.status_code == 302
     coupon = Coupon.objects.get(code="PICK-TWO")
     assert set(coupon.products.values_list("pk", flat=True)) == {
-        product.pk, unavailable_product.pk,
+        product.pk,
+        unavailable_product.pk,
     }
     edit_url = reverse("orders:edit_coupon", args=[coupon.pk])
     parsed = ProductInputs(client.get(edit_url).content)
@@ -64,14 +65,21 @@ def test_multiple_selections_save_and_survive_invalid_edit(
         assert "bg-primary/15" in parsed.labels[attrs["id"]]["class"]
 
     # A validation error must retain the staff member's changed selection.
-    response = client.post(edit_url, {**data, "percentage": 101, "products": [product.pk]})
+    response = client.post(
+        edit_url, {**data, "percentage": 101, "products": [product.pk]}
+    )
     assert response.status_code == 200
     assert "percentage" in response.context["form"].errors
     parsed = ProductInputs(response.content)
     assert "checked" in parsed.inputs[str(product.pk)]
     assert "checked" not in parsed.inputs[str(unavailable_product.pk)]
-    assert "bg-primary/15" in parsed.labels[parsed.inputs[str(product.pk)]["id"]]["class"]
-    assert "bg-primary/15" not in parsed.labels[parsed.inputs[str(unavailable_product.pk)]["id"]]["class"]
+    assert (
+        "bg-primary/15" in parsed.labels[parsed.inputs[str(product.pk)]["id"]]["class"]
+    )
+    assert (
+        "bg-primary/15"
+        not in parsed.labels[parsed.inputs[str(unavailable_product.pk)]["id"]]["class"]
+    )
     assert coupon.products.count() == 2
 
     assert client.post(edit_url, {**data, "products": [product.pk]}).status_code == 302
@@ -80,9 +88,15 @@ def test_multiple_selections_save_and_survive_invalid_edit(
 
 def test_empty_selection_shows_error_beside_product_picker(client, staff_user, product):
     client.force_login(staff_user)
-    response = client.post(reverse("orders:create_coupon"), {
-        "code": "EMPTY", "percentage": 50, "scope": "PRODUCTS", "end_date": "2030-12-31",
-    })
+    response = client.post(
+        reverse("orders:create_coupon"),
+        {
+            "code": "EMPTY",
+            "percentage": 50,
+            "scope": "PRODUCTS",
+            "end_date": "2030-12-31",
+        },
+    )
     assert response.status_code == 200
     assert "Select at least one eligible product." in response.content.decode()
     assert 'id="id_products_errors"' in response.content.decode()

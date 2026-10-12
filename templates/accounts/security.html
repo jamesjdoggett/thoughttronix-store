@@ -12,7 +12,7 @@
       <a class="btn btn-outline" href="{% url 'accounts:email_replacement' %}{% if checkout_next %}?next={% url 'orders:checkout' %}{% endif %}">Change email</a>
       {% if user.pending_email %}
         <h3 class="font-bold">Pending replacement</h3>
-        <p>{{ user.pending_email }} ? awaiting verification. Your current email remains active for recovery and checkout.</p>
+        <p>{{ user.pending_email }} (awaiting verification). Your current email remains active for recovery and checkout.</p>
         <a class="btn btn-primary" href="{% url 'accounts:verification_request' %}">Verify replacement email</a>
         <form method="post" action="{% url 'accounts:email_replacement_cancel' %}">{% csrf_token %}<button class="btn btn-outline" type="submit">Cancel pending change</button></form>
       {% endif %}
@@ -29,8 +29,8 @@
     <h2 class="card-title">Password</h2>
     <a class="btn btn-outline" href="{% url 'accounts:password_change' %}">Change password</a>
     <p>Changing your password keeps this session signed in and signs out your other sessions.</p>
-    <p>Forgotten-password recovery will be available in a later update.</p>
-    <p>Recovery will require a verified email. If you lose inbox access, recover your email account first.</p>
+    <p><a class="link" href="{% url 'accounts:password_reset' %}">Forgot your password?</a></p>
+    <p>Recovery requires a verified email. If you lose inbox access, recover your email account first.</p>
   </div></section>
 </div>
 {% endblock %}

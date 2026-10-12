@@ -100,6 +100,9 @@ LOGIN_REDIRECT_URL = "products:catalog"
 
 LOGOUT_REDIRECT_URL = "products:catalog"
 
+# Recovery links last exactly 24 hours, as agreed in the account-security PRD.
+PASSWORD_RESET_TIMEOUT = 24 * 60 * 60
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",

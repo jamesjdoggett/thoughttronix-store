@@ -4,6 +4,7 @@ from math import ceil
 from time import sleep
 
 from django.conf import settings
+from django.contrib.auth import password_validation
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -99,6 +100,28 @@ class User(AbstractUser):
         self.refresh_from_db()
         return bool(updated)
 
+    def reset_recovered_password(self, password: str) -> bool:
+        """Consume the observed credentials atomically and cancel pending replacement."""
+        old_password = self.password
+        self.set_password(password)
+        updated = User.objects.filter(
+            pk=self.pk,
+            password=old_password,
+            email_revision=self.email_revision,
+            email=self.email,
+            email_verified=True,
+            is_active=True,
+        ).update(
+            password=self.password,
+            pending_email="",
+            pending_email_revision=F("pending_email_revision") + 1,
+        )
+        if updated:
+            self.refresh_from_db()
+            password_validation.password_changed(password, self)
+            self._password = None
+        return bool(updated)
+
     def stage_email_replacement(self, email):
         """Replace or cancel only the pending request the caller observed."""
         updated = User.objects.filter(
@@ -135,6 +158,7 @@ class SecurityRequestManager(models.Manager):
         count_network=True,
         network_only=False,
         pending=False,
+        recovery=False,
     ):
         """Retain the boolean reservation API for existing callers."""
         return bool(
@@ -145,6 +169,7 @@ class SecurityRequestManager(models.Manager):
                 count_network=count_network,
                 network_only=network_only,
                 pending=pending,
+                recovery=recovery,
             )
         )
 
@@ -157,6 +182,7 @@ class SecurityRequestManager(models.Manager):
         count_network: bool = True,
         network_only: bool = False,
         pending: bool = False,
+        recovery: bool = False,
     ) -> SecurityRequestDecision:
         """Retry transient SQLite lock contention without allowing extra sends."""
         for attempt in range(100):
@@ -168,6 +194,7 @@ class SecurityRequestManager(models.Manager):
                     count_network=count_network,
                     network_only=network_only,
                     pending=pending,
+                    recovery=recovery,
                 )
             except OperationalError as error:
                 if "locked" not in str(error).lower() or attempt == 99:
@@ -183,6 +210,7 @@ class SecurityRequestManager(models.Manager):
         count_network=True,
         network_only=False,
         pending=False,
+        recovery=False,
     ):
         with transaction.atomic():
             updated = SecurityRequestLock.objects.filter(pk=1).update(
@@ -223,10 +251,16 @@ class SecurityRequestManager(models.Manager):
                 return SecurityRequestDecision(True)
             if user is not None:
                 user.refresh_from_db()
-            if user is not None and user.email_verified and not pending:
+            if (
+                user is not None
+                and user.email_verified
+                and not pending
+                and not recovery
+            ):
                 return SecurityRequestDecision(False, "verified")
             if (
                 user is None
+                or (recovery and (not user.email_verified or not user.is_active))
                 or (not pending and not user.can_verify_email())
                 or (pending and (not user.email_verified or not user.pending_email))
             ):

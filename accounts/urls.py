@@ -5,6 +5,25 @@ from . import views
 app_name = "accounts"
 
 urlpatterns = [
+    path("password/reset/", views.RecoveryRequestView.as_view(), name="password_reset"),
+    path(
+        "password/reset/sent/",
+        views.TemplateView.as_view(template_name="accounts/password_reset_done.html"),
+        name="password_reset_done",
+    ),
+    path(
+        "password/reset/<str:uidb64>/<str:token>/",
+        views.RecoveryConfirmView.as_view(),
+        name="password_reset_confirm",
+    ),
+    path(
+        "password/reset/<str:token>/",
+        views.TemplateView.as_view(
+            template_name="accounts/password_reset_confirm.html",
+            extra_context={"validlink": False},
+        ),
+        name="password_reset_legacy",
+    ),
     path(
         "security/password/",
         views.SecurityPasswordChangeView.as_view(),

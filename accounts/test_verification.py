@@ -53,7 +53,7 @@ def test_required_valid_unique_email(client, email):
     response = signup(client, email=email)
     assert response.context["form"].errors["email"]
     assert not User.objects.filter(username="new-user").exists()
-    assert "Password recovery will be available" in response.content.decode()
+    assert reverse("accounts:password_reset") in response.content.decode()
 
 
 def test_dots_and_plus_remain_significant(client):

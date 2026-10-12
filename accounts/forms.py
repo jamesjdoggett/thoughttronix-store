@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
+    SetPasswordForm,
     UserCreationForm,
 )
 
@@ -93,3 +94,24 @@ class EmailReplacementForm(EmailCorrectionForm):
         if cleaned.get("email") == self.user.email:
             self.add_error("email", "Choose a different email address.")
         return cleaned
+
+
+class RecoveryRequestForm(forms.Form):
+    """Accept even malformed destinations without disclosing eligibility."""
+
+    email = forms.CharField(
+        label="Email address",
+        required=False,
+        widget=forms.EmailInput(
+            attrs={"class": "input w-full", "autocomplete": "email"}
+        ),
+    )
+
+
+class RecoveryPasswordForm(SetPasswordForm):
+    """Apply the existing password policy to recovered accounts."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input w-full"

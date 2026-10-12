@@ -33,7 +33,7 @@
         </form>
 
         <p class="mt-4 text-center text-sm opacity-70">
-          Email unavailable? Sign in to your existing account. Password recovery will be available in a later update. Already have an account?
+          Email unavailable? Sign in to your existing account. <a class="link" href="{% url 'accounts:password_reset' %}">Forgot your password?</a> Already have an account?
           <a href="{% url 'accounts:login' %}" class="link link-primary">Sign in</a>
         </p>
       </div>
