@@ -1,3 +1,33 @@
+## Account Security Center
+
+Question 1 — Review one phase:
+
+Phase 1 was supposed to let customers sign up with an email address and verify it through an emailed link. Customers could still sign in with their username and use their cart before verification.
+
+When I tested the verification link in the browser, it showed an invalid-or-expired message. The console email output had split the URL with quoted-printable markers, so clicking it submitted an incomplete token. Codex fixed the console email backend and added regression tests using the actual outgoing links. I requested another verification email and confirmed that the new link worked before approving the phase.
+
+Question 2 — Authentication code versus the lesson:
+
+The implementation uses Django’s `LoginView` in `accounts/views.py`, line 113, with a parent call at line 118. The application’s login view inherits from this component so Django handles checking credentials and creating the signed-in session.
+
+It also uses `LoginRequiredMixin` in `accounts/views.py`, line 127. This component protects the Account Security Center by requiring users to sign in before accessing their account controls.
+
+These components follow the lesson’s authentication pattern by using Django’s built-in authentication views and access controls instead of creating a separate login system.
+
+Question 3 — Password management versus the lesson:
+
+The password-change implementation uses Django’s `PasswordChangeView` in `accounts/views.py`, line 136, with a parent call at line 144. The form subclasses Django’s `PasswordChangeForm` in `accounts/forms.py`, line 12.
+
+Django checks the current password, validates the new password and confirmation, and saves the password securely. The built-in view also preserves the session used to submit the change.
+
+The implementation extends this pattern to sign out other sessions and send a password-change alert to the verified email address. I accepted those additions because they match the PRD while keeping the security-sensitive password work in Django’s built-in framework.
+
+Question 4 — The tracer-bullet plan:
+
+Phase 1 was a useful stopping point because it delivered a complete signup-and-verification flow rather than only preparing models, migrations, and email settings. It connected the database, forms, views, templates, email delivery, and tests through one working customer action.
+
+That made the feature easier to review before continuing. My browser check exposed the broken console email link early, and it was corrected before later phases depended on verification. The remaining phases could then build on a working flow.
+
 ## Product Images
 
 Question 1 — One decision from grill me:
