@@ -2,7 +2,7 @@
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 
@@ -11,8 +11,53 @@ from .models import Product, Review
 from .review_services import can_review, publish_review, review_context
 
 
+class ReviewCsrfView(View):
+    """Refresh a drafting form's token without replacing its inputs."""
+
+    def get(self, request: HttpRequest, slug: str) -> HttpResponse:
+        """Return current CSRF state even when the session has expired."""
+        product = get_object_or_404(Product, slug=slug)
+        response = render(
+            request,
+            "products/partials/_review_csrf.html",
+            {
+                "product": product,
+                "refreshed": True,
+                "save_failed": request.GET.get("failed") == "1",
+            },
+        )
+        response["Cache-Control"] = "no-store"
+        return response
+
+
 class ReviewView(LoginRequiredMixin, View):
     """Shared product scoping, author access, and enhanced responses."""
+
+    def handle_no_permission(self) -> HttpResponse:
+        """Retain enhanced save drafts when their authentication has expired."""
+        if (
+            self.request.headers.get("HX-Request") == "true"
+            and self.request.method == "POST"
+            and self.request.resolver_match.url_name in {"review_create", "review_edit"}
+        ):
+            product = get_object_or_404(Product, slug=self.kwargs["slug"])
+            editing = self.request.resolver_match.url_name == "review_edit"
+            form_class = ReviewEditForm if editing else ReviewForm
+            form = form_class(
+                self.request.POST,
+                auto_id=f"id_{self.get_location()}_%s" if editing else "id_create_%s",
+            )
+            form.is_valid()
+            form.add_error(
+                None,
+                "Your session has expired. Sign in in another tab, then return "
+                "here to retry. Your draft has been kept.",
+            )
+            review = Review(pk=self.kwargs["pk"], product=product) if editing else None
+            response = self.render_form(product, review=review, form=form)
+            response["Cache-Control"] = "no-store"
+            return response
+        return super().handle_no_permission()
 
     def get_review(self, product, pk):
         """Resolve a review within its product for its author or staff."""
@@ -169,6 +214,13 @@ class ReviewCreateView(ReviewView):
             try:
                 review = publish_review(request.user, product, **form.cleaned_data)
             except ValueError as error:
+                review = Review.objects.filter(
+                    author=request.user, product=product, **form.cleaned_data
+                ).first()
+                if review is not None:
+                    return self.success(
+                        product, mutation="recover_create", review=review
+                    )
                 form.add_error(None, str(error))
             else:
                 return self.success(product, mutation="create", review=review)

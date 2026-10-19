@@ -2,7 +2,7 @@
 
 > Source PRD: [ThoughtTronix Product Reviews](../prd/product-reviews.md)
 >
-> Four-phase breakdown approved by the user on 2026-10-18. Phases 1-3 implemented and manually verified by the user on 2026-10-18; phase 4 remains unimplemented.
+> Four-phase breakdown approved by the user on 2026-10-18. All four phases implemented and manually verified by the user on 2026-10-18.
 
 ## Architectural decisions
 
@@ -111,6 +111,8 @@
 
 ## Phase 4: Failed saves, expired sessions, and final integration verification
 
+**Status:** Complete. Full suite: 579 passed. Ruff lint/format, Django system and migration checks, Git whitespace checks, and production CSS build passed. The user confirmed browser verification passed on 2026-10-18. Enhanced saves retain expired-session drafts and offer sign-in in another tab. A read-only, uncached token-refresh partial preserves fields after login rotation or request failures. Declarative HTMX error events request nearby feedback; persistent guidance remains available while offline. Identical creation retries recover an already-saved review without duplicate public cards; edit retries use the existing revision-conflict flow. No migrations or custom JavaScript.
+
 **User stories:** 14, 21-23 (4 distinct stories) directly; final integration verification covers all 23 stories.
 
 **Dependencies:** Phases 1-3: complete customer/staff workflows, incremental loading, and conflict-aware retry.
@@ -121,8 +123,8 @@
 
 ### Acceptance criteria
 
-- [ ] In browser developer tools, interrupt a create or edit save, then restore connectivity. Rating, comment, page position, and nearby retry feedback remain; retry succeeds without duplicating a review.
-- [ ] Expire a session while a form is open and submit it. The drafting page stays in place with its draft; sign in in another tab and return to retry successfully, including when login rotates the CSRF token.
-- [ ] A rejected CSRF request or server failure preserves inputs and shows a nearby error. Failed requests do not falsely update saved copies or summary totals.
-- [ ] Tests verify enhanced failure/authentication responses do not redirect the drafting page, drafts remain available, permissions are rechecked on retry, and successful responses still synchronize affected displays. Manually verify transport behavior that server tests cannot prove.
-- [ ] Run the full suite, Ruff checks, and CSS build as applicable. Browser-check create, edit, delete, staff moderation, loading, conflicts, and recovery together; repeat ordinary CRUD with HTMX disabled. Confirm no additional JavaScript was introduced.
+- [x] In browser developer tools, interrupt a create or edit save, then restore connectivity. Rating, comment, page position, and nearby retry feedback remain; retry succeeds without duplicating a review.
+- [x] Expire a session while a form is open and submit it. The drafting page stays in place with its draft; sign in in another tab and return to retry successfully, including when login rotates the CSRF token.
+- [x] A rejected CSRF request or server failure preserves inputs and shows a nearby error. Failed requests do not falsely update saved copies or summary totals.
+- [x] Tests verify enhanced failure/authentication responses do not redirect the drafting page, drafts remain available, permissions are rechecked on retry, and successful responses still synchronize affected displays. Manually verify transport behavior that server tests cannot prove.
+- [x] Run the full suite, Ruff checks, and CSS build as applicable. Browser-check create, edit, delete, staff moderation, loading, conflicts, and recovery together; repeat ordinary CRUD with HTMX disabled. Confirm no additional JavaScript was introduced.

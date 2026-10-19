@@ -17,6 +17,290 @@ from orders.models import Order, OrderItem
 from .forms import ReviewForm
 from .models import Review
 from .review_services import can_review
+from .review_views import ReviewCreateView, ReviewEditView
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_lost_success_response_recovers_saved_review_on_retry(
+    client, customer, product, review_purchase, monkeypatch, editing
+):
+    review = (
+        Review.objects.create(
+            product=product, author=customer, rating=2, comment="Saved review"
+        )
+        if editing
+        else None
+    )
+    client.force_login(customer)
+    client.raise_request_exception = False
+    url = reverse(
+        "products:review_edit" if editing else "products:review_create",
+        args=[product.slug, review.pk] if editing else [product.slug],
+    )
+    draft = {"rating": "4", "comment": "Saved but response lost", "revision": "1"}
+
+    def lost_response(*args, **kwargs):
+        raise RuntimeError("Response failed after the database save")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            ReviewEditView if editing else ReviewCreateView, "success", lost_response
+        )
+        assert client.post(url, draft, HTTP_HX_REQUEST="true").status_code == 500
+    saved = product.reviews.get()
+    assert (saved.rating, saved.comment) == (4, "Saved but response lost")
+    retried = client.post(url, draft, HTTP_HX_REQUEST="true")
+    assert retried.status_code == 200
+    body = retried.content.decode()
+    assert 'id="review-summary"' in body
+    assert "4.0 out of 5 stars" in body
+    assert product.reviews.count() == 1
+    if editing:
+        assert "changed while you were editing" in body
+        assert "Saved but response lost" in body
+        draft["revision"] = str(saved.revision)
+        retried = client.post(url, draft, HTTP_HX_REQUEST="true")
+        assert retried["HX-Reswap"] == "none"
+    else:
+        assert retried["HX-Reswap"] == "none"
+        removal = f'hx-swap-oob="delete:#review-public-{saved.pk}"'
+        insertion = 'hx-swap-oob="afterbegin:#review-list"'
+        assert body.index(removal) < body.index(insertion)
+        assert f'id="review-own-{saved.pk}"' in body
+        assert f'id="review-public-{saved.pk}"' in body
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_enhanced_server_failure_can_retry_without_false_saved_updates(
+    client, customer, product, review_purchase, monkeypatch, editing
+):
+    review = (
+        Review.objects.create(
+            product=product, author=customer, rating=2, comment="Saved review"
+        )
+        if editing
+        else None
+    )
+    client.force_login(customer)
+    client.raise_request_exception = False
+    url = reverse(
+        "products:review_edit" if editing else "products:review_create",
+        args=[product.slug, review.pk] if editing else [product.slug],
+    )
+    opened = client.get(url if editing else product.get_absolute_url())
+    assert "Save did not finish?" in opened.content.decode()
+    draft = {"rating": "4", "comment": "Retry after server failure", "revision": "1"}
+
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("Temporary service failure")
+
+    with monkeypatch.context() as patch:
+        if editing:
+            patch.setattr(Review, "edit", unavailable)
+        else:
+            patch.setattr("products.review_views.publish_review", unavailable)
+        failed = client.post(url, draft, HTTP_HX_REQUEST="true")
+    assert failed.status_code == 500
+    assert "Location" not in failed.headers
+    assert "HX-Redirect" not in failed.headers
+    assert "HX-Refresh" not in failed.headers
+    assert "hx-swap-oob=" not in failed.content.decode()
+    if editing:
+        review.refresh_from_db()
+        assert (review.rating, review.comment, review.revision) == (
+            2,
+            "Saved review",
+            1,
+        )
+    else:
+        assert not product.reviews.exists()
+    retried = client.post(url, draft, HTTP_HX_REQUEST="true")
+    assert retried.status_code == 200
+    assert retried["HX-Reswap"] == "none"
+    assert 'id="review-summary"' in retried.content.decode()
+    saved = product.reviews.get()
+    assert (saved.rating, saved.comment) == (4, "Retry after server failure")
+    repeated = client.post(url, draft, HTTP_HX_REQUEST="true")
+    assert repeated.status_code == 200
+    assert product.reviews.count() == 1
+
+
+def test_csrf_recovery_is_read_only_and_does_not_require_a_session(client, product):
+    response = client.get(
+        reverse("products:review_csrf", args=[product.slug]), HTTP_HX_REQUEST="true"
+    )
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "no-store"
+    body = response.content.decode()
+    assert 'name="csrfmiddlewaretoken"' in body
+    assert 'target="_blank"' in body
+    assert "another tab" in body
+    assert "hx-swap-oob=" not in body
+    assert not product.reviews.exists()
+    assert (
+        client.post(reverse("products:review_csrf", args=[product.slug])).status_code
+        == 405
+    )
+
+
+def test_enhanced_failure_feedback_refreshes_only_token_and_nearby_message(
+    client, customer, product
+):
+    client.force_login(customer)
+    response = client.get(
+        reverse("products:review_csrf", args=[product.slug]),
+        {"failed": "1"},
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 200
+    assert response["Cache-Control"] == "no-store"
+    body = response.content.decode()
+    assert 'role="alert"' in body
+    assert "save could not be confirmed" in body
+    assert 'name="csrfmiddlewaretoken"' in body
+    assert 'name="rating"' not in body
+    assert 'name="comment"' not in body
+    assert "hx-swap-oob=" not in body
+    assert "Location" not in response.headers
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_expired_review_session_keeps_draft_and_offers_separate_tab_login(
+    client, customer, product, review_purchase, editing
+):
+    review = (
+        Review.objects.create(
+            product=product, author=customer, rating=2, comment="Saved review"
+        )
+        if editing
+        else None
+    )
+    url = reverse(
+        "products:review_edit" if editing else "products:review_create",
+        args=[product.slug, review.pk] if editing else [product.slug],
+    )
+    client.force_login(customer)
+    if editing:
+        assert client.get(url, HTTP_HX_REQUEST="true").status_code == 200
+    else:
+        assert client.get(product.get_absolute_url()).status_code == 200
+    client.logout()
+
+    response = client.post(
+        url,
+        {"rating": "4", "comment": "My unsaved draft", "revision": "1"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert "Location" not in response.headers
+    assert "HX-Redirect" not in response.headers
+    body = response.content.decode()
+    assert "<html" not in body
+    assert "My unsaved draft" in body
+    assert 'value="4"' in body
+    assert 'target="_blank"' in body
+    assert reverse("accounts:login") in body
+    assert "another tab" in body
+    assert "hx-swap-oob=" not in body
+    if editing:
+        review.refresh_from_db()
+        assert (review.rating, review.comment, review.revision) == (
+            2,
+            "Saved review",
+            1,
+        )
+    else:
+        assert not product.reviews.exists()
+
+
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("retry_allowed", [False, True])
+def test_rotated_csrf_recovery_keeps_draft_and_rechecks_retry_permissions(
+    customer, staff_user, product, review_purchase, editing, retry_allowed
+):
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(customer)
+    review = (
+        Review.objects.create(
+            product=product, author=customer, rating=2, comment="Saved review"
+        )
+        if editing
+        else None
+    )
+    url = reverse(
+        "products:review_edit" if editing else "products:review_create",
+        args=[product.slug, review.pk] if editing else [product.slug],
+    )
+    page = client.get(url if editing else product.get_absolute_url())
+    body = page.content.decode()
+    recovery_url = f"/products/{product.slug}/reviews/csrf/"
+    assert f'hx-get="{recovery_url}"' in body
+    stale_token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', body).group(
+        1
+    )
+    # Logging in in another tab rotates the shared cookie, leaving the old
+    # drafting page's hidden field and inherited X-CSRFToken header stale.
+    login_user = staff_user if editing and not retry_allowed else customer
+    if login_user == staff_user:
+        staff_user.is_staff = False
+        staff_user.save(update_fields=["is_staff"])
+    signed_in = client.post(
+        reverse("accounts:login"),
+        {
+            "username": login_user.username,
+            "password": "employee123" if login_user == staff_user else "customer123",
+            "csrfmiddlewaretoken": stale_token,
+        },
+    )
+    assert signed_in.status_code == 302
+    draft = {
+        "rating": "4",
+        "comment": "Draft survives rotation",
+        "revision": "1",
+        "csrfmiddlewaretoken": stale_token,
+    }
+    rejected = client.post(
+        url, draft, HTTP_HX_REQUEST="true", HTTP_X_CSRFTOKEN=stale_token
+    )
+    assert rejected.status_code == 403
+    assert "Location" not in rejected.headers
+    assert "HX-Redirect" not in rejected.headers
+    assert "hx-swap-oob=" not in rejected.content.decode()
+    assert product.reviews.count() == int(editing)
+
+    refreshed = client.get(recovery_url, HTTP_HX_REQUEST="true")
+    assert refreshed.status_code == 200
+    assert refreshed.headers["Cache-Control"] == "no-store"
+    fragment = refreshed.content.decode()
+    assert 'name="rating"' not in fragment
+    assert 'name="comment"' not in fragment
+    assert "<html" not in fragment
+    draft["csrfmiddlewaretoken"] = re.search(
+        r'name="csrfmiddlewaretoken" value="([^"]+)"', fragment
+    ).group(1)
+    if not editing and not retry_allowed:
+        review_purchase.status = Order.Status.CANCELLED
+        review_purchase.save()
+    retried = client.post(
+        url, draft, HTTP_HX_REQUEST="true", HTTP_X_CSRFTOKEN=stale_token
+    )
+    assert retried.status_code == (200 if retry_allowed else 403)
+    if retry_allowed:
+        assert retried["HX-Reswap"] == "none"
+        assert 'id="review-summary"' in retried.content.decode()
+        saved = product.reviews.get()
+        assert (saved.rating, saved.comment) == (4, "Draft survives rotation")
+        assert product.reviews.count() == 1
+    elif editing:
+        review.refresh_from_db()
+        assert (review.rating, review.comment, review.revision) == (
+            2,
+            "Saved review",
+            1,
+        )
+    else:
+        assert not product.reviews.exists()
 
 
 @pytest.mark.parametrize("enhanced", [True, False])

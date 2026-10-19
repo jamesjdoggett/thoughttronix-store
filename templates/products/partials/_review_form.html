@@ -2,8 +2,8 @@
   <form class="card-body space-y-3" method="post"
         action="{% if review %}{% url 'products:review_edit' product.slug review.pk %}{% else %}{% url 'products:review_create' product.slug %}{% endif %}"
         hx-post="{% if review %}{% url 'products:review_edit' product.slug review.pk %}{% else %}{% url 'products:review_create' product.slug %}{% endif %}"
-        hx-target="closest .review-copy" hx-swap="outerHTML">
-    {% csrf_token %}
+        hx-target="closest .review-copy" hx-swap="outerHTML" hx-request='{"timeout":15000}'>
+    {% include "products/partials/_review_csrf.html" %}
     <input type="hidden" name="location" value="{{ location }}" />
     {% for error in form.non_field_errors %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endfor %}
     {% if conflict %}
@@ -24,6 +24,12 @@
       {% endif %}
     {% endfor %}
     {% if not deleted %}<p class="text-sm opacity-60">Write 1–2,000 characters. Your review is published immediately.</p>{% endif %}
+    {% if not deleted %}
+      <aside class="rounded-box border border-base-300 p-3 text-sm space-y-2" aria-label="Save recovery">
+        <p role="status">Save did not finish? Your draft stays here. Restore your connection and retry. If the server or security check failed, refresh the security token above and retry. Only a confirmed save updates the displayed review and totals.</p>
+        <p>If your session expired, <a class="link link-primary" href="{% url 'accounts:login' %}?next={{ product.get_absolute_url|urlencode }}%23reviews" target="_blank" rel="noopener">sign in in another tab</a>, then refresh the token before retrying. Keep this page open; refreshing or closing it can discard your draft.</p>
+      </aside>
+    {% endif %}
     <div class="flex gap-3">
       {% if not deleted %}<button class="btn btn-primary" type="submit" hx-disabled-elt="this">{% if review %}Save{% else %}Publish review{% endif %}</button>{% endif %}
       {% if deleted %}

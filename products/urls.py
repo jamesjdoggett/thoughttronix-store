@@ -13,6 +13,11 @@ urlpatterns = [
         name="review_list",
     ),
     path(
+        "products/<slug:slug>/reviews/csrf/",
+        review_views.ReviewCsrfView.as_view(),
+        name="review_csrf",
+    ),
+    path(
         "products/<slug:slug>/reviews/",
         review_views.ReviewCreateView.as_view(),
         name="review_create",

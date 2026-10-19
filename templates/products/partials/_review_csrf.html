@@ -1,0 +1,14 @@
+<div class="review-csrf space-y-2">
+  {% csrf_token %}
+  <button type="button" class="btn btn-outline btn-sm"
+          hx-get="{% url 'products:review_csrf' product.slug %}"
+          hx-trigger="click, online from:window"
+          hx-params="none"
+          hx-target="closest .review-csrf" hx-swap="outerHTML"
+          hx-disabled-elt="this">Refresh security token</button>
+  <span hx-get="{% url 'products:review_csrf' product.slug %}?failed=1"
+        hx-trigger="htmx:responseError from:closest form target:form, htmx:sendError from:closest form target:form, htmx:timeout from:closest form target:form"
+        hx-params="none" hx-target="closest .review-csrf" hx-swap="outerHTML"></span>
+  {% if save_failed %}<p class="alert alert-error" role="alert">Your save could not be confirmed. Your draft is kept below. Check your connection or sign in again, then retry. The security token has been refreshed.</p>{% endif %}
+  <p class="text-sm opacity-70" role="status">{% if refreshed %}Security token refreshed. This does not save your review. {% endif %}{% if user.is_authenticated %}After signing in again or a security error, refresh the token here, then retry your save.{% else %}<a class="link link-primary" href="{% url 'accounts:login' %}?next={{ product.get_absolute_url|urlencode }}%23reviews" target="_blank" rel="noopener">Sign in in another tab</a>, then refresh the security token here before retrying.{% endif %} Your rating and comment stay in place.</p>
+</div>

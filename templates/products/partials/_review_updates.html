@@ -1,7 +1,8 @@
 {% include "products/partials/_review_summary.html" with oob=True %}
 {% if update_own %}{% include "products/partials/_your_review.html" with oob=True %}{% endif %}
 {% include "products/partials/_review_empty.html" with oob=True %}
-{% if mutation == 'create' %}
+{% if mutation == 'recover_create' %}<div hx-swap-oob="delete:#review-public-{{ review.pk }}"></div>{% endif %}
+{% if mutation == 'create' or mutation == 'recover_create' %}
   <div hx-swap-oob="afterbegin:#review-list">
     {% include "products/partials/_review_card.html" with location="public" %}
   </div>
