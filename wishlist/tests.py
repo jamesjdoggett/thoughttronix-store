@@ -463,7 +463,9 @@ def test_visible_pagination_and_removal_forms_preserve_current_page(
         action, body = next(
             (action, body)
             for action, body in forms
-            if action.startswith(reverse("wishlist:detail"))
+            if action.startswith(
+                reverse("wishlist:remove", args=[0]).rsplit("0/", 1)[0]
+            )
         )
         destination = unescape(re.search(r'name="next" value="([^"]+)"', body)[1])
         assert destination == detail_url + "?page=2"

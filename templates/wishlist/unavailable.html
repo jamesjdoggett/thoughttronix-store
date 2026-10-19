@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Wishlist unavailable — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="rounded-box bg-base-100 p-8 text-center">
+    <h1 class="text-3xl font-bold">Wishlist unavailable</h1>
+    <p class="mt-2 opacity-70">This wishlist cannot be viewed.</p>
+    <a href="{% url 'products:catalog' %}" class="btn btn-primary mt-6">Browse products</a>
+  </div>
+{% endblock %}

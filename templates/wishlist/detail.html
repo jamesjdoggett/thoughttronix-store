@@ -8,5 +8,26 @@
     <h1 class="text-3xl font-bold">Your wishlist</h1>
     <a href="{% url 'products:catalog' %}" class="btn btn-ghost">Browse products</a>
   </div>
+  <section aria-labelledby="sharing-heading" class="mb-6 rounded-box bg-base-100 p-4">
+    <h2 id="sharing-heading" class="text-xl font-semibold">Share your wishlist</h2>
+    {% if sharing_url %}
+      <p class="mt-2 opacity-70">Anyone with this link can view your saved products. Disable sharing to revoke access.</p>
+      <label for="sharing-url" class="mt-4 block font-semibold">Sharing link</label>
+      <input id="sharing-url" type="url" readonly value="{{ sharing_url }}" class="input input-bordered mt-2 w-full" />
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <a href="{{ sharing_url }}" class="btn btn-outline btn-sm">Open shared page</a>
+        <form method="post" action="{% url 'wishlist:disable_sharing' %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline btn-sm">Disable sharing</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="mt-2 opacity-70">Your wishlist is private. Enable sharing to let anyone with the link view your saved products.</p>
+      <form method="post" action="{% url 'wishlist:enable_sharing' %}" class="mt-4">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline btn-sm">Enable sharing</button>
+      </form>
+    {% endif %}
+  </section>
   {% include "wishlist/partials/_contents.html" %}
 {% endblock %}

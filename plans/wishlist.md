@@ -117,15 +117,15 @@ Deliver sharing controls and their public read-only destination together. Owners
 
 ### Acceptance criteria
 
-- [ ] Sharing persistence is introduced by migration and defaults existing and new lists to private. Settings belong to the wishlist.
-- [ ] Owner-page controls provide Enable sharing, a selectable active URL, Open shared page, and Disable sharing without a separate settings page or clipboard scripting. Controls work through ordinary forms.
-- [ ] Only the authenticated owner can enable or disable sharing, using POST with CSRF protection. A token never authorizes a mutation.
-- [ ] Enabling produces a unique cryptographically hard-to-guess token with no account identifier. Disabling revokes it; re-enabling generates a new token and all previously revoked links remain invalid.
-- [ ] `/wishlists/shared/<random-token>/` works without sign-in and for signed-in viewers, including the owner. It reflects current membership and live product data, newest first with deterministic tie ordering and 20 products per page.
-- [ ] Shared pages use the generic Shared wishlist title and reveal no owner's username, email, greeting, or account identifiers in page content or the site shell. A signed-in viewer's normal navigation still describes that viewer's account.
-- [ ] Available shared products link to their existing catalog detail URLs. Unavailable entries show their current name, image, price, and Unavailable label with no product link or buying action.
-- [ ] Shared pages offer no owner management, direct add-to-cart, or save-to-my-wishlist actions. Other accounts and staff cannot use sharing to inspect private owner views or change the list.
-- [ ] Empty shared lists say No products saved and link to the catalog. Sharing may remain enabled while empty.
-- [ ] Invalid tokens, disabled sharing, and deleted owners return the same generic Wishlist unavailable page with HTTP 404 and a catalog link, without exposing account existence or revocation history.
-- [ ] Product deletion removes shared entries; account or wishlist deletion invalidates shared access. Existing catalog visibility remains unchanged.
-- [ ] Tests cover private defaults, token lifecycle and uniqueness, owner authorization, POST/CSRF, anonymous and signed-in viewing, shell privacy, current data, pagination, unavailable entries, deletion, empty states, and indistinguishable invalid-link responses; the full suite passes.
+- [x] Sharing persistence is introduced by migration and defaults existing and new lists to private. Settings belong to the wishlist.
+- [x] Owner-page controls provide Enable sharing, a selectable active URL, Open shared page, and Disable sharing without a separate settings page or clipboard scripting. Controls work through ordinary forms.
+- [x] Only the authenticated owner can enable or disable sharing, using POST with CSRF protection. A token never authorizes a mutation.
+- [x] Enabling produces a unique cryptographically hard-to-guess token with no account identifier. Disabling revokes it; re-enabling generates a new token and all previously revoked links remain invalid.
+- [x] `/wishlists/shared/<random-token>/` works without sign-in and for signed-in viewers, including the owner. It reflects current membership and live product data, newest first with deterministic tie ordering and 20 products per page.
+- [x] Shared pages use the generic Shared wishlist title and reveal no owner's username, email, greeting, or account identifiers in page content or the site shell. A signed-in viewer's normal navigation still describes that viewer's account.
+- [x] Available shared products link to their existing catalog detail URLs. Unavailable entries show their current name, image, price, and Unavailable label with no product link or buying action.
+- [x] Shared pages offer no owner management, direct add-to-cart, or save-to-my-wishlist actions. Other accounts and staff cannot use sharing to inspect private owner views or change the list.
+- [x] Empty shared lists say No products saved and link to the catalog. Sharing may remain enabled while empty.
+- [x] Invalid tokens, disabled sharing, and deleted owners return the same generic Wishlist unavailable page with HTTP 404 and a catalog link, without exposing account existence or revocation history.
+- [x] Product deletion removes shared entries; account or wishlist deletion invalidates shared access. Existing catalog visibility remains unchanged.
+- [x] Tests cover private defaults, token lifecycle and uniqueness, owner authorization, POST/CSRF, anonymous and signed-in viewing, shell privacy, current data, pagination, unavailable entries, deletion, empty states, and indistinguishable invalid-link responses; the full suite passes.

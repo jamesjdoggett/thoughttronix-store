@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Shared wishlist — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <h1 class="mb-6 text-3xl font-bold">Shared wishlist</h1>
+  {% if entries %}
+    <ul class="space-y-4">
+      {% for entry in entries %}
+        <li class="flex flex-wrap items-center gap-4 rounded-box bg-base-100 p-4 shadow-sm">
+          <img src="{{ entry.product.catalog_image_url }}" alt="{{ entry.product.name }}" width="80" height="80" class="h-20 w-20 rounded-box object-contain" />
+          <div class="min-w-0 flex-1">
+            {% if entry.product.is_available %}
+              <a href="{{ entry.product.get_absolute_url }}" class="link link-hover font-semibold">{{ entry.product.name }}</a>
+            {% else %}
+              <span class="font-semibold">{{ entry.product.name }}</span>
+            {% endif %}
+            <p class="text-primary">${{ entry.product.price|intcomma }}</p>
+            {% if entry.product.is_available %}
+              <span class="badge badge-success badge-outline">In stock</span>
+            {% else %}
+              <span class="badge badge-warning badge-outline">Unavailable</span>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if is_paginated %}
+      <nav aria-label="Wishlist pages" class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-outline btn-sm">Previous</a>
+        {% endif %}
+        <span aria-current="page">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="btn btn-outline btn-sm">Next</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="rounded-box bg-base-100 p-8 text-center">
+      <h2 class="text-xl font-semibold">No products saved</h2>
+      <a href="{% url 'products:catalog' %}" class="btn btn-primary mt-6">Browse products</a>
+    </div>
+  {% endif %}
+{% endblock %}

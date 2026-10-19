@@ -32,6 +32,15 @@ class WishlistView(LoginRequiredMixin, ListView):
             wishlist__user=self.request.user
         ).select_related("product__category")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        wishlist = Wishlist.objects.filter(user=self.request.user).first()
+        if wishlist and wishlist.share_token:
+            context["sharing_url"] = self.request.build_absolute_uri(
+                reverse("wishlist:shared", args=[wishlist.share_token])
+            )
+        return context
+
 
 class WishlistMutationView(LoginRequiredMixin, View):
     http_method_names = ["post", "options"]
@@ -49,6 +58,35 @@ class WishlistMutationView(LoginRequiredMixin, View):
         if self.request.headers.get("HX-Request") == "true":
             return HttpResponse(headers={"HX-Redirect": response.url})
         return response
+
+
+class EnableSharingView(WishlistMutationView):
+    def post(self, request):
+        Wishlist.for_user(request.user).enable_sharing()
+        return redirect("wishlist:detail")
+
+
+class DisableSharingView(WishlistMutationView):
+    def post(self, request):
+        wishlist = Wishlist.objects.filter(user=request.user).first()
+        if wishlist:
+            wishlist.disable_sharing()
+        return redirect("wishlist:detail")
+
+
+class SharedWishlistView(ListView):
+    template_name = "wishlist/shared.html"
+    context_object_name = "entries"
+    paginate_by = 20
+
+    def get(self, request, *args, **kwargs):
+        self.wishlist = Wishlist.objects.filter(share_token=kwargs["token"]).first()
+        if self.wishlist is None:
+            return render(request, "wishlist/unavailable.html", status=404)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return self.wishlist.entries.select_related("product__category")
 
 
 class AddSavedProductToCartView(WishlistMutationView):

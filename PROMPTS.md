@@ -1,5 +1,26 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-18 - Customer Wishlist Phase 5 secure sharing
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/customer-wishlist.md @plans/wishlist.md implement phase 5"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full checks, manual browser confirmation, session logging, commit and push.
+4. "approved" - approved the sharing lifecycle and shared-page privacy TDD selections.
+5. "approved" - approved the assertion-failing sharing lifecycle RED test.
+6. "approved" - approved the lifecycle GREEN implementation and regression results.
+7. "approved" - approved the assertion-failing shared-page privacy RED test.
+8. "Approved. This implements the intended shared-page behavior. Continue with the implement skill."
+9. 'Manual browser verification passed. Phase 5 is approved. Update PROMPTS.md following its existing format, run the final checks, and commit the completed work with the message: "Complete wishlist Phase 5 with secure sharing and privacy controls". Push the commit to GitHub and confirm the working tree is clean. Do not implement any additional features.'
+
+### Summary
+
+- **Outcome:** Implemented Wishlist Phase 5 only. Added a nullable unique sharing token migration that leaves existing and new lists private. Owners enable and revoke sharing through CSRF-protected POST forms on their wishlist page, with a selectable URL and Open shared page link. Tokens use cryptographic randomness, repeated enables preserve the active link, and re-enabling after revocation creates a fresh link. Public read-only pages show live products with stable newest-first ordering and 20-row pagination, omit owner identity and wishlist mutation controls, preserve the viewer's own navigation, and show unavailable products without product links. Empty lists retain sharing and offer Browse products. Invalid, revoked and deleted-owner/list links use the same generic HTTP 404 page. Applied the local migration and marked Phase 5 criteria complete after the user's browser approval. No additional features were implemented.
+- **Verification:** Completed both selected TDD behaviors through assertion-failing RED tests, explicit approvals, GREEN implementations and passing wishlist regressions (69 and 70 tests respectively). Expanded coverage for owner controls, token uniqueness, authentication, POST/CSRF, owner isolation, pagination, current membership, deletion, empty states and equivalent unavailable pages. The full suite passed all 489 tests after the existing pagination test selector was corrected, and all 489 passed again in the final run after browser approval. Final Ruff lint and repository-wide formatting, Django system checks, migration consistency, whitespace checks and a forced production CSS build passed. The user confirmed manual browser verification passed; no additional scenario-specific browser results are claimed.
+- **Deviations:** No design recommendations were overridden. Paused at the implement/TDD skills' selection, RED, GREEN and browser approval checkpoints, then continued with explicit approval. This entry is added above previous entries without rewriting their history.
+- **Sideways:** uv initially could not access its external cache under the sandbox; approved escalation enabled migration generation and checks. New invalid-link comparison tests initially compared randomized CSRF masks byte for byte; normalized only that mask when comparing otherwise identical page content. The first full suite run passed 488 tests and exposed an existing pagination test that selected the first wishlist form, now Enable sharing; narrowed its selector to the removal endpoint while preserving its assertions. The corrected focused test and full suite passed. Initial Git staging could not create .git/index.lock under the sandbox; approved escalation enabled staging. No seed or database reset was performed.
+
 ## 2026-10-18 - Customer Wishlist Phase 4 cart integration
 
 ### Prompts

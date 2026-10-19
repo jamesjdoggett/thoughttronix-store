@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.db import models, transaction
 
@@ -5,6 +7,8 @@ from products.models import Product
 
 
 class Wishlist(models.Model):
+    share_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist"
     )
@@ -36,6 +40,19 @@ class Wishlist(models.Model):
 
     def remove(self, product):
         self.entries.filter(product=product).delete()
+
+    def enable_sharing(self):
+        with transaction.atomic():
+            type(self).objects.filter(pk=self.pk).update(id=models.F("id"))
+            current = type(self).objects.get(pk=self.pk)
+            if not current.share_token:
+                current.share_token = secrets.token_urlsafe(32)
+                current.save(update_fields=["share_token"])
+            self.share_token = current.share_token
+
+    def disable_sharing(self):
+        type(self).objects.filter(pk=self.pk).update(share_token=None)
+        self.share_token = None
 
 
 class WishlistEntry(models.Model):
