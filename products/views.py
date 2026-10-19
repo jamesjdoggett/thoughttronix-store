@@ -13,8 +13,9 @@ from django.views.generic import (
 
 from accounts.mixins import StaffRequiredMixin
 
-from .forms import CategoryForm, ProductForm, TagForm
+from .forms import CategoryForm, ProductForm, ReviewForm, TagForm
 from .models import Category, Product, Tag
+from .review_services import review_context
 
 
 class CatalogView(ListView):
@@ -83,6 +84,8 @@ class ProductDetailView(DetailView):
         from wishlist.models import WishlistEntry
 
         context = super().get_context_data(**kwargs)
+        context.update(review_context(self.object, self.request.user))
+        context["review_form"] = ReviewForm(auto_id="id_create_%s")
         context["is_saved"] = (
             self.request.user.is_authenticated
             and WishlistEntry.objects.filter(

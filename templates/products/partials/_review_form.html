@@ -1,0 +1,27 @@
+<div id="{% if review %}review-{{ location }}-{{ review.pk }}{% else %}review-create{% endif %}" class="review-copy card bg-base-100 shadow-sm">
+  <form class="card-body space-y-3" method="post"
+        action="{% if review %}{% url 'products:review_edit' product.slug review.pk %}{% else %}{% url 'products:review_create' product.slug %}{% endif %}"
+        hx-post="{% if review %}{% url 'products:review_edit' product.slug review.pk %}{% else %}{% url 'products:review_create' product.slug %}{% endif %}"
+        hx-target="closest .review-copy" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="location" value="{{ location }}" />
+    {% for error in form.non_field_errors %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endfor %}
+    {% for field in form %}
+      <div class="space-y-2">
+        <label class="label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.name == 'rating' %} (1–5 stars){% endif %}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="text-sm text-error" role="alert">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    <p class="text-sm opacity-60">Write 1–2,000 characters. Your review is published immediately.</p>
+    <div class="flex gap-3">
+      <button class="btn btn-primary" type="submit" hx-disabled-elt="this">{% if review %}Save{% else %}Publish review{% endif %}</button>
+      {% if review %}
+        <a class="btn btn-ghost" href="{{ product.get_absolute_url }}#reviews"
+           hx-get="{% url 'products:review_edit' product.slug review.pk %}?cancel=1&amp;location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Cancel</a>
+      {% else %}
+        <a class="btn btn-ghost" href="{{ product.get_absolute_url }}#reviews">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>

@@ -1,0 +1,4 @@
+<div id="review-summary" class="rounded-box bg-base-100 p-4" aria-live="polite" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <span class="font-semibold">{{ review_summary.count }} review{{ review_summary.count|pluralize }}</span>
+  {% if review_summary.count %}<span class="ml-3">{{ review_summary.average|floatformat:1 }} out of 5 stars</span>{% endif %}
+</div>

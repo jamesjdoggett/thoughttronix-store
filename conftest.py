@@ -63,6 +63,22 @@ def unavailable_product(category):
 
 
 @pytest.fixture
+def review_purchase(customer, product):
+    """An account's qualifying purchase, without invoking checkout or seed."""
+    from orders.models import Order, OrderItem
+
+    order = Order.objects.create(user=customer, total=product.price)
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        product_name=product.name,
+        unit_price=product.price,
+        quantity=1,
+    )
+    return order
+
+
+@pytest.fixture
 def tag(db):
     return Tag.objects.create(name="bestseller", slug="bestseller")
 

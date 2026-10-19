@@ -1,0 +1,19 @@
+<article id="review-{{ location }}-{{ review.pk }}" class="review-copy card bg-base-100 shadow-sm" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <div class="card-body gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="font-semibold">{{ review.author.username }}</span>
+      <span class="badge badge-success badge-outline">Verified purchaser</span>
+      <time class="text-sm opacity-60" datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:"M j, Y" }}</time>
+    </div>
+    <p class="font-semibold text-primary">{{ review.rating }} out of 5 stars</p>
+    <p class="break-words">{{ review.comment|linebreaksbr }}</p>
+    {% if user.pk == review.author_id %}
+      <div class="card-actions mt-2">
+        <a class="btn btn-outline btn-sm" href="{% url 'products:review_edit' product.slug review.pk %}"
+           hx-get="{% url 'products:review_edit' product.slug review.pk %}?location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Edit</a>
+        <a class="btn btn-ghost btn-sm text-error" href="{% url 'products:review_delete' product.slug review.pk %}"
+           hx-get="{% url 'products:review_delete' product.slug review.pk %}?location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Delete</a>
+      </div>
+    {% endif %}
+  </div>
+</article>

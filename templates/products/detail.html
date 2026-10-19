@@ -66,4 +66,16 @@
       {% endif %}
     </div>
   </div>
+
+  <section id="reviews" class="mt-12 space-y-6" aria-labelledby="reviews-heading">
+    <h2 id="reviews-heading" class="text-3xl font-bold">Customer reviews</h2>
+    {% include "products/partials/_review_summary.html" %}
+    {% include "products/partials/_your_review.html" %}
+    {% include "products/partials/_review_empty.html" %}
+    <div id="review-list" class="space-y-4">
+      {% for review in reviews %}
+        {% include "products/partials/_review_card.html" with location="public" %}
+      {% endfor %}
+    </div>
+  </section>
 {% endblock %}

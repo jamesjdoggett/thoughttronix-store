@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Your review — The ThoughtTronix Store{% endblock %}
+{% block content %}
+  <div hx-disable>
+    <h1 class="mb-6 text-2xl font-bold">Your review of {{ product.name }}</h1>
+    {% if deleting %}
+      {% include "products/partials/_review_confirmation.html" %}
+    {% else %}
+      {% include "products/partials/_review_form.html" %}
+    {% endif %}
+  </div>
+{% endblock %}

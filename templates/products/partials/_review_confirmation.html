@@ -1,0 +1,15 @@
+<div id="review-{{ location }}-{{ review.pk }}" class="review-copy card bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h3 class="card-title">Delete your review?</h3>
+    <p>{{ review.rating }} out of 5 stars · {{ review.comment|linebreaksbr }}</p>
+    <p>Your review will be permanently deleted.</p>
+    <form method="post" action="{% url 'products:review_delete' product.slug review.pk %}" class="card-actions mt-3"
+          hx-post="{% url 'products:review_delete' product.slug review.pk %}" hx-target="closest .review-copy" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="location" value="{{ location }}" />
+      <button type="submit" class="btn btn-error" hx-disabled-elt="this">Confirm</button>
+      <a class="btn btn-ghost" href="{{ product.get_absolute_url }}#reviews"
+         hx-get="{% url 'products:review_edit' product.slug review.pk %}?cancel=1&amp;location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Cancel</a>
+    </form>
+  </div>
+</div>

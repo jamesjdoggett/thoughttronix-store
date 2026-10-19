@@ -1,5 +1,89 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-18 - Product reviews Phase 1 customer publication and management
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/product-reviews.md @plans/product-reviews.md implement phase 1"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full feedback checks, manual browser confirmation, session logging, commit, and push.
+4. "Approved." - approved the three TDD selections: purchase eligibility, author editing after cancellation, and deletion/replacement eligibility.
+5. "Approved." - approved the assertion-failing purchase eligibility test.
+6. "approved." - approved the eligibility GREEN implementation and regression results.
+7. "approved" - approved the assertion-failing author editing after cancellation test.
+8. "approved" - approved the editing GREEN implementation and regression results.
+9. "approved" - approved the assertion-failing deletion and replacement test.
+10. "approved" - approved the deletion/replacement GREEN implementation and regression results, authorizing the remaining phase 1 work.
+11. "Manual browser verification passed. Continue with the implement skill, update PROMPTS.md, commit this phase, and push to GitHub."
+
+### Summary
+
+- **Outcome:** Implemented only product reviews phase 1: Review persistence and migration, database uniqueness and rating bounds, purchase-account eligibility, public product-page reviews, ten newest reviews with stable ordering, summary totals, a dedicated Your review area, author creation/editing/deletion, inline cancellation and deletion confirmation, replacement eligibility, escaped comments with preserved line breaks, validation feedback with retained inputs, synchronized HTMX copies and totals, and ordinary-form fallbacks. Existing reviews remain public and manageable after cancellation or product unavailability. Product deletion cascades reviews while retaining order snapshots; replacement products inherit neither reviews nor eligibility. Applied migration 0006 locally and rebuilt production CSS. Preserved the existing PRD, plan, and earlier log entries; marked phase 1 verified in the plan. The user confirmed manual browser verification passed and explicitly authorized committing and pushing this phase.
+- **Verification:** All three selected behaviors completed approved RED/GREEN cycles with regression checks: 45, 47, and 49 tests passed respectively. The final full suite passed 542 tests, including 53 review cases. Ruff lint and formatting checks, Django system checks, migration consistency checks, Git whitespace checks, and a forced Tailwind production build passed. Coverage includes qualifying/cancelled/mixed purchases, account identity, SoulSear/next-of-kin rules, unverified email, unavailable products, staff personal eligibility, permissions, CSRF, validation, duplicate protection including a simulated concurrent insert collision, stable initial ordering, summaries and dedicated older reviews, product lifecycle, and full-page/partial responses. Supplied eight browser verification steps; the user reported they passed.
+- **Deviations:** No recommendations were overridden. Honored every TDD approval checkpoint and waited for browser confirmation before this log and Git finalization. Revision and staff-attribution fields are present as planned schema foundations; staff moderation, additional loading, edit-conflict handling, and failed-request/session recovery remain assigned to phases 2-4. Added no custom JavaScript and no tests invoking seed.
+- **Sideways:** uv initially could not access its external cache under the sandbox; approved escalation enabled commands. An edit to the test file temporarily displaced part of an approved test; restored it without changing its assertions before running checks. Comment-form validation tests initially lacked database access needed for Django's constraint validation; added the db fixture, then the full suite passed. Ruff corrected import ordering and formatting. Review caught a standalone fallback-form edge case; disabled HTMX on the full-page wrapper so those submissions navigate back to the product instead of targeting absent inline sections. No database reset or standalone seed command was run; the required full suite includes pre-existing seed tests.
+
+## 2026-10-18 - Product reviews implementation planning
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. Invoked "$prd-to-plan @prd/product-reviews.md": "Create a phased implementation plan for the product reviews feature." Required manageable tracer-bullet phases, each delivering working functionality manually verifiable in the browser; save to plans/product-reviews.md without implementing any phases.
+3. Supplied the prd-to-plan skill, including codebase exploration, durable architectural decisions, vertical slices, user review of the breakdown, and the Markdown plan template.
+4. Requested revising the seven-phase proposal into four phases: customer creation/editing/deletion; staff moderation and additional loading; concurrent editing and conflicts; failed saves, expired sessions, and final integration verification. Required preservation of every business requirement, user story, acceptance criterion, authorization rule, HTMX interaction, ordinary-form fallback, and edge case; updated numbering, story assignments, and dependencies; and a concise summary with story counts for approval. No code implementation was authorized.
+5. "I approve the four-phase breakdown. Save the finalized plan to plans/product-reviews.md. Update PROMPTS.md with this planning session using its existing format. Do not implement any code yet."
+
+### Summary
+
+- **Outcome:** Inspected the reviews PRD and existing product, order, account, template, HTMX, and fixture patterns. Created a seven-phase proposal, regrouped it into the four requested vertical slices, and finalized plans/product-reviews.md after explicit approval. The plan retains all 23 user stories, all 36 original acceptance criteria, durable architecture and authorization decisions, browser demonstrations, ordinary-form fallbacks, and phase dependencies. Distinct direct story counts are 18, 11, 4, and 4 with intentional overlap; final integration verification covers all 23 stories. Added this entry above previous entries without rewriting history. No application code, migrations, database changes, commits, or pushes were made.
+- **Verification:** Programmatically checked that regrouping preserved all 36 acceptance criteria verbatim and in order, produced exactly four phases, and removed references to superseded phases 5-7. Confirmed the finalized plan still contains four phases and 36 unchecked criteria. Documentation whitespace checks were run; no application tests or browser checks were needed or claimed for this planning-only session.
+- **Deviations:** The user requested four phases instead of the initial seven, specified their grouping, and then approved the revised breakdown. Saved the initial proposal as pending review so it was concrete and reviewable before approval; finalized it only after the user's approval.
+- **Sideways:** Large exploratory outputs were truncated and followed with targeted reads. PowerShell's Python pipe encoding converted newly added range dashes to question marks; replaced those new metadata ranges with ASCII hyphens before presenting the revised plan. No requirements were dropped and no implementation was begun.
+
+
+## 2026-10-18 - Product reviews design interview and PRD
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. Invoked "$grill-me" for a customer product review system with six business requirements: one review per customer per product; required rating and written comment; purchase-only eligibility including SoulSear owners but excluding their next of kin; customers edit/delete only their own reviews; staff edit/delete any customer's review; and smooth HTMX creation, editing, and deletion without full-page reloads or lost position. Requested inspection of purchases, order history, product models, authorization, and HTMX patterns; questions one at a time with tradeoffs; and no code or documentation yet.
+3. Supplied the grill-me skill: interview one decision at a time, explain options for a beginner, recommend an option with reasons, and explore the codebase instead of asking questions it can answer.
+4. "1" - qualified Placed, Shipped, and Delivered orders; excluded Cancelled orders.
+5. "1" - kept existing reviews visible and editable after later order cancellation.
+6. "1" - restricted eligibility to the purchasing account, without transfer to gift recipients or next of kin.
+7. "1" - selected whole-star ratings from 1 through 5.
+8. "1" - selected comments of 1-2,000 characters after trimming surrounding whitespace, displayed as plain text with line breaks preserved.
+9. "1" - placed public reviews and eligible customers' inline creation forms on the product detail page.
+10. "1" - selected public usernames with a Verified purchaser label.
+11. "1" - selected an Edited by staff label and internal staff-editor/time attribution.
+12. "1" - placed staff moderation controls on product detail pages rather than in a separate back-office section.
+13. "1" - selected immediate publication without staff approval.
+14. "1" - selected newest-posted-first ordering, with edits leaving reviews in place.
+15. "1" - selected ten reviews initially and an HTMX Load more button appending ten at a time.
+16. "1" - selected a dedicated Your review area above the public list, with synchronized updates to both displayed copies when present.
+17. "1" - allowed replacement reviews after deletion if the account still has a qualifying purchase.
+18. "1" - selected inline Confirm/Cancel deletion confirmation.
+19. "1" - selected a one-decimal average rating and review count above the reviews, with No reviews yet when empty and HTMX updates after changes.
+20. "1" - selected concurrent-edit conflict detection, draft preservation, and comparison with the latest saved review.
+21. "1" - allowed staff to post their own reviews under ordinary purchase requirements, without creating reviews for other customers.
+22. "1" - allowed qualifying purchasers to review unavailable products.
+23. "1" - required a qualifying purchase and sign-in without a separate current-email-verification check.
+24. "1" - retained drafts and page position after failed saves, showing nearby errors and allowing sign-in in another tab after session expiry; refresh/close persistence was excluded.
+25. "1" - retained only the latest staff editor and time, without full revision history; the staff-edit label persists after later customer edits.
+26. "1" - deleted reviews with permanently deleted products, preserved them for unavailable products, and excluded inheritance of reviews or eligibility by newly created products.
+27. "1" - selected inline edit forms with Save/Cancel, saved-text restoration on cancellation, and retained inputs with field validation errors.
+28. "1" - selected standard-form fallbacks when HTMX is unavailable, returning to the product's reviews section after submission.
+29. Invoked "$to-prd": "Create the product reviews PRD at prd/product-reviews.md using all approved interview decisions. Ensure every business requirement is included. Do not implement anything yet."
+30. Supplied the to-prd skill: synthesize existing context without another interview; use Problem Statement, Solution, User Stories, Implementation Decisions, Out of Scope, and Further Notes; exclude specific file paths and code snippets from implementation decisions.
+31. "Update PROMPTS.md with this session using its existing logging format. Include the design interview and PRD work. Do not commit yet."
+
+### Summary
+
+- **Outcome:** Inspected existing purchase/order-item relationships, order-history ownership restrictions, product/detail patterns, staff authorization, and HTMX wishlist/cart interactions. Completed the design interview with 25 individual decisions, then created prd/product-reviews.md using the required template, 23 user stories, all approved decisions, and an explicit restatement of all six business requirements. Added this session entry above existing entries without rewriting their history. No feature code, migrations, implementation plan, commit, or push was produced.
+- **Verification:** Reviewed the PRD against the approved interview choices and business requirements. Checked its required section headings and key eligibility, pagination, conflict, and fallback content. Git whitespace checks passed after PRD creation. No automated tests or browser checks were run because the work was documentation only.
+- **Deviations:** The user chose the recommended first option for every interview question. No recommendations were overridden and no corrective prompts occurred. The initial prohibition on documentation was honored until the user explicitly requested the PRD. The log was added only after the user's logging request.
+- **Sideways:** Some large exploratory tool outputs were truncated; subsequent targeted reads established the relevant order ownership, status, staff-access, and HTMX patterns. No implementation failures, escalation requests, seed commands, or database changes occurred. The PRD and session log remain uncommitted as requested.
+
 ## 2026-10-18 - Customer Wishlist Phase 5 secure sharing
 
 ### Prompts

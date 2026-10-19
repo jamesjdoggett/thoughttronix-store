@@ -12,7 +12,7 @@ from django import forms
 from django.core.files.uploadedfile import UploadedFile
 
 from .images import IMAGE_HELP, optimize_image
-from .models import Category, Product, Tag
+from .models import Category, Product, Review, Tag
 
 
 class StyledModelForm(forms.ModelForm):
@@ -104,6 +104,17 @@ class CategoryForm(StyledModelForm):
     class Meta:
         model = Category
         fields = ["name", "slug"]
+
+
+class ReviewForm(StyledModelForm):
+    """Validate whole stars and required, trimmed purchaser feedback."""
+
+    rating = forms.IntegerField(min_value=1, max_value=5)
+    comment = forms.CharField(max_length=2000, strip=True, widget=forms.Textarea)
+
+    class Meta:
+        model = Review
+        fields = ["rating", "comment"]
 
 
 class TagForm(StyledModelForm):
