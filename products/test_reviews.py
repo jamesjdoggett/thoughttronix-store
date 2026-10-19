@@ -165,8 +165,9 @@ def test_enhanced_failure_feedback_refreshes_only_token_and_nearby_message(
 
 
 @pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("location", ["own", "public"])
 def test_expired_review_session_keeps_draft_and_offers_separate_tab_login(
-    client, customer, product, review_purchase, editing
+    client, customer, product, review_purchase, editing, location
 ):
     review = (
         Review.objects.create(
@@ -181,14 +182,24 @@ def test_expired_review_session_keeps_draft_and_offers_separate_tab_login(
     )
     client.force_login(customer)
     if editing:
-        assert client.get(url, HTTP_HX_REQUEST="true").status_code == 200
+        opened = client.get(url, {"location": location}, HTTP_HX_REQUEST="true")
+        assert opened.status_code == 200
+        opened_ids = {
+            name: opened.context["form"][name].id_for_label
+            for name in ("rating", "comment", "revision")
+        }
     else:
         assert client.get(product.get_absolute_url()).status_code == 200
     client.logout()
 
     response = client.post(
         url,
-        {"rating": "4", "comment": "My unsaved draft", "revision": "1"},
+        {
+            "rating": "4",
+            "comment": "My unsaved draft",
+            "revision": "1",
+            "location": location,
+        },
         HTTP_HX_REQUEST="true",
     )
 
@@ -204,6 +215,12 @@ def test_expired_review_session_keeps_draft_and_offers_separate_tab_login(
     assert "another tab" in body
     assert "hx-swap-oob=" not in body
     if editing:
+        for name, original_id in opened_ids.items():
+            assert response.context["form"][name].id_for_label == original_id
+            assert f"_{review.pk}_" in original_id
+            assert f' id="{original_id}"' in body
+            if name != "revision":
+                assert f'for="{original_id}"' in body
         review.refresh_from_db()
         assert (review.rating, review.comment, review.revision) == (
             2,
@@ -523,6 +540,76 @@ def test_conflict_synchronizes_saved_copies_without_replacing_open_forms(
     assert review.staff_editor is None
     assert review.staff_edited_at is None
     assert (review.rating, review.revision) == (5, 2)
+
+
+@pytest.mark.parametrize("enhanced", [True, False])
+@pytest.mark.parametrize("state", ["initial", "validation", "conflict", "deleted"])
+def test_open_review_edit_forms_have_distinct_ids_and_correct_labels(
+    client, customer, staff_user, product, enhanced, state
+):
+    reviews = [
+        Review.objects.create(
+            product=product, author=author, rating=3, comment="Saved review"
+        )
+        for author in (customer, staff_user)
+    ]
+    client.force_login(staff_user)
+    headers = {"HTTP_HX_REQUEST": "true"} if enhanced else {}
+
+    def field_ids(response, review):
+        assert response.status_code == 200
+        form = response.context["form"]
+        body = response.content.decode()
+        ids = {}
+        for name in ("rating", "comment", "revision"):
+            field = form[name]
+            ids[name] = field.id_for_label
+            assert f"_{review.pk}_" in ids[name]
+            assert body.count(f' id="{ids[name]}"') == 1
+            if name != "revision":
+                assert re.search(
+                    rf'<label\b[^>]*\bfor="{re.escape(ids[name])}"[^>]*>'
+                    rf"\s*{re.escape(field.label)}",
+                    body,
+                )
+        return ids
+
+    opened_ids = []
+    for review in reviews:
+        url = reverse("products:review_edit", args=[product.slug, review.pk])
+        opened = client.get(url, {"location": "public"}, **headers)
+        opened_ids.append(field_ids(opened, review))
+
+    rendered_ids = []
+    for review, original_ids in zip(reviews, opened_ids, strict=True):
+        url = reverse("products:review_edit", args=[product.slug, review.pk])
+        if state == "initial":
+            rendered_ids.extend(original_ids.values())
+            continue
+        if state == "conflict":
+            Review.objects.filter(pk=review.pk).update(revision=2)
+        elif state == "deleted":
+            Review.objects.filter(pk=review.pk).delete()
+        response = client.post(
+            url,
+            {
+                "location": "public",
+                "rating": "6" if state == "validation" else "4",
+                "comment": "Retained draft",
+                "revision": "1",
+            },
+            **headers,
+        )
+        current_ids = field_ids(response, review)
+        assert current_ids == original_ids
+        assert "Retained draft" in response.content.decode()
+        if state == "validation":
+            assert response.context["form"].errors["rating"]
+        else:
+            assert response.context[state]
+        rendered_ids.extend(current_ids.values())
+
+    assert len(rendered_ids) == len(set(rendered_ids)) == 6
 
 
 @pytest.mark.parametrize("revision", [None, "", "0", "-1", "1.5", "invalid"])

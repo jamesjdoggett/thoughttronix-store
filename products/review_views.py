@@ -45,7 +45,11 @@ class ReviewView(LoginRequiredMixin, View):
             form_class = ReviewEditForm if editing else ReviewForm
             form = form_class(
                 self.request.POST,
-                auto_id=f"id_{self.get_location()}_%s" if editing else "id_create_%s",
+                auto_id=(
+                    f"id_{self.get_location()}_{self.kwargs['pk']}_%s"
+                    if editing
+                    else "id_create_%s"
+                ),
             )
             form.is_valid()
             form.add_error(
@@ -135,7 +139,7 @@ class ReviewEditView(ReviewView):
         review = Review(pk=pk, product=product)
         form = ReviewEditForm(
             self.request.POST,
-            auto_id=f"id_{self.get_location()}_%s",
+            auto_id=f"id_{self.get_location()}_{pk}_%s",
         )
         form.is_valid()
         form.add_error(
@@ -165,7 +169,7 @@ class ReviewEditView(ReviewView):
             product,
             review=review,
             form=ReviewEditForm(
-                instance=review, auto_id=f"id_{self.get_location()}_%s"
+                instance=review, auto_id=f"id_{self.get_location()}_{pk}_%s"
             ),
         )
 
@@ -177,7 +181,7 @@ class ReviewEditView(ReviewView):
             if Review.objects.filter(pk=pk).exists():
                 raise
             return self.deleted_response(product, pk)
-        form = ReviewEditForm(request.POST, auto_id=f"id_{self.get_location()}_%s")
+        form = ReviewEditForm(request.POST, auto_id=f"id_{self.get_location()}_{pk}_%s")
         if not form.is_valid():
             return self.render_form(product, review=review, form=form)
         if not review.edit(**form.cleaned_data, editor=request.user):
@@ -187,7 +191,7 @@ class ReviewEditView(ReviewView):
                 return self.deleted_response(product, pk)
             data = request.POST.copy()
             data["revision"] = review.revision
-            form = ReviewEditForm(data, auto_id=f"id_{self.get_location()}_%s")
+            form = ReviewEditForm(data, auto_id=f"id_{self.get_location()}_{pk}_%s")
             form.is_valid()
             form.add_error(
                 None,
