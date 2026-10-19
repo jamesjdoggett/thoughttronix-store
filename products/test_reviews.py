@@ -19,6 +19,249 @@ from .models import Review
 from .review_services import can_review
 
 
+@pytest.mark.parametrize("enhanced", [True, False])
+@pytest.mark.parametrize("losing_staff", [True, False])
+def test_atomic_edit_conflict_retains_draft_and_latest_staff_version(
+    client, customer, staff_user, product, monkeypatch, enhanced, losing_staff
+):
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Original"
+    )
+    client.force_login(staff_user if losing_staff else customer)
+    url = reverse("products:review_edit", args=[product.slug, review.pk])
+    headers = {"HTTP_HX_REQUEST": "true"} if enhanced else {}
+    assert client.get(url, **headers).status_code == 200
+    original_update = QuerySet.update
+    raced = False
+    staff_edit_time = timezone.now()
+
+    def racing_update(queryset, **kwargs):
+        nonlocal raced
+        if queryset.model is Review and not raced:
+            raced = True
+            # Another editor commits after the POST has read the review but
+            # before its write: checking only on form open/read is insufficient.
+            original_update(
+                Review.objects.filter(pk=review.pk),
+                rating=5,
+                comment="Latest saved version",
+                revision=2,
+                staff_editor=staff_user,
+                staff_edited_at=staff_edit_time,
+            )
+        return original_update(queryset, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "update", racing_update)
+    response = client.post(
+        url,
+        {
+            "rating": "1",
+            "comment": "My unsaved draft",
+            "revision": "1",
+            "location": "public",
+        },
+        **headers,
+    )
+    assert raced
+    review.refresh_from_db()
+    assert (review.rating, review.comment, review.revision) == (
+        5,
+        "Latest saved version",
+        2,
+    )
+    assert review.author == customer
+    assert review.staff_editor == staff_user
+    assert review.staff_edited_at == staff_edit_time
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert "My unsaved draft" in body
+    assert 'value="1"' in body
+    assert "Latest saved version" in body
+    assert "5 out of 5 stars" in body
+    assert "Edited by staff" in body
+    assert "changed" in body.lower()
+    assert ("<html" in body) is (not enhanced)
+    assert 'id="review-list"' not in body
+
+
+@pytest.mark.parametrize("enhanced", [True, False])
+@pytest.mark.parametrize("during_write", [True, False])
+def test_deleted_review_keeps_pending_edit_draft_without_resurrection(
+    client, customer, staff_user, product, monkeypatch, enhanced, during_write
+):
+    client.raise_request_exception = False
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Original"
+    )
+    pk = review.pk
+    client.force_login(customer)
+    url = reverse("products:review_edit", args=[product.slug, pk])
+    headers = {"HTTP_HX_REQUEST": "true"} if enhanced else {}
+    opened = client.get(url, **headers)
+    assert opened.status_code == 200
+    original_update = QuerySet.update
+    deleted = False
+
+    def racing_update(queryset, **kwargs):
+        nonlocal deleted
+        if queryset.model is Review and not deleted:
+            deleted = True
+            Review.objects.filter(pk=pk).delete()
+        return original_update(queryset, **kwargs)
+
+    if during_write:
+        monkeypatch.setattr(QuerySet, "update", racing_update)
+    else:
+        moderator = Client()
+        moderator.force_login(staff_user)
+        removed = moderator.post(
+            reverse("products:review_delete", args=[product.slug, pk])
+        )
+        assert removed.status_code == 302
+    response = client.post(
+        url,
+        {"rating": "1", "comment": "Draft after deletion", "revision": "1"},
+        **headers,
+    )
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert "Draft after deletion" in body
+    assert 'value="1"' in body
+    assert "deleted" in body.lower()
+    assert "0 reviews" in body
+    assert ("<html" in body) is (not enhanced)
+    assert not Review.objects.filter(pk=pk).exists()
+    assert not product.reviews.exists()
+    # Repeated pending submissions must preserve the draft without creating anew.
+    repeated = client.post(
+        url,
+        {"rating": "1", "comment": "Draft after deletion", "revision": "1"},
+        **headers,
+    )
+    assert repeated.status_code == 200
+    assert "Draft after deletion" in repeated.content.decode()
+    assert not product.reviews.exists()
+
+
+@pytest.mark.parametrize("enhanced", [True, False])
+def test_same_account_tabs_require_explicit_retry_after_each_conflict(
+    client, customer, product, enhanced
+):
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Original"
+    )
+    client.force_login(customer)
+    url = reverse("products:review_edit", args=[product.slug, review.pk])
+    headers = {"HTTP_HX_REQUEST": "true"} if enhanced else {}
+
+    def displayed_revision(response):
+        match = re.search(r'name="revision" value="(\d+)"', response.content.decode())
+        assert match is not None, "Each form must carry its displayed revision"
+        return match.group(1)
+
+    first_tab = displayed_revision(client.get(url, **headers))
+    second_tab = displayed_revision(client.get(url, **headers))
+    assert first_tab == second_tab == "1"
+    client.post(
+        url, {"rating": "4", "comment": "First save", "revision": first_tab}, **headers
+    )
+    draft = {"rating": "1", "comment": "Second tab draft", "revision": second_tab}
+    conflict = client.post(url, draft, **headers)
+    assert conflict.status_code == 200
+    assert "First save" in conflict.content.decode()
+    assert "Second tab draft" in conflict.content.decode()
+    retry_revision = displayed_revision(conflict)
+    assert retry_revision == "2"
+    review.refresh_from_db()
+    assert (review.rating, review.comment, review.revision) == (4, "First save", 2)
+
+    client.post(
+        url, {"rating": "5", "comment": "Another save", "revision": "2"}, **headers
+    )
+    draft["revision"] = retry_revision
+    second_conflict = client.post(url, draft, **headers)
+    assert second_conflict.status_code == 200
+    assert "Another save" in second_conflict.content.decode()
+    assert "Second tab draft" in second_conflict.content.decode()
+    assert "changed" in second_conflict.content.decode().lower()
+    review.refresh_from_db()
+    assert (review.rating, review.comment, review.revision) == (5, "Another save", 3)
+    draft["revision"] = displayed_revision(second_conflict)
+    assert draft["revision"] == "3"
+    saved = client.post(url, draft, **headers)
+    assert saved.status_code == (200 if enhanced else 302)
+    review.refresh_from_db()
+    assert (review.rating, review.comment, review.revision) == (
+        1,
+        "Second tab draft",
+        4,
+    )
+
+
+def test_conflict_synchronizes_saved_copies_without_replacing_open_forms(
+    client, customer, staff_user, product
+):
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Original"
+    )
+    Review.objects.create(
+        product=product, author=staff_user, rating=1, comment="Staff's own review"
+    )
+    client.force_login(staff_user)
+    url = reverse("products:review_edit", args=[product.slug, review.pk])
+    client.get(url, HTTP_HX_REQUEST="true")
+    Review.objects.filter(pk=review.pk).update(
+        rating=5, comment="<b>Latest</b>\nSecond line", revision=2
+    )
+    response = client.post(
+        url,
+        {
+            "rating": "3",
+            "comment": "Unsaved staff draft",
+            "revision": "1",
+            "location": "public",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert "Unsaved staff draft" in body
+    assert "&lt;b&gt;Latest&lt;/b&gt;<br>Second line" in body
+    assert 'id="review-summary"' in body
+    assert "2 reviews" in body
+    assert "3.0 out of 5 stars" in body
+    # Only saved article cards are eligible for replacement; edit forms use divs.
+    assert f'hx-swap-oob="outerHTML:article#review-own-{review.pk}"' in body
+    assert f'hx-swap-oob="outerHTML:article#review-public-{review.pk}"' in body
+    assert 'id="your-review"' not in body
+    assert 'id="review-list"' not in body
+    review.refresh_from_db()
+    assert review.staff_editor is None
+    assert review.staff_edited_at is None
+    assert (review.rating, review.revision) == (5, 2)
+
+
+@pytest.mark.parametrize("revision", [None, "", "0", "-1", "1.5", "invalid"])
+def test_edit_requires_a_valid_revision(client, customer, product, revision):
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Saved"
+    )
+    client.force_login(customer)
+    data = {"rating": "4", "comment": "Retained draft"}
+    if revision is not None:
+        data["revision"] = revision
+    response = client.post(
+        reverse("products:review_edit", args=[product.slug, review.pk]),
+        data,
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 200
+    assert response.context["form"].errors["revision"]
+    assert "Retained draft" in response.content.decode()
+    review.refresh_from_db()
+    assert (review.rating, review.comment, review.revision) == (2, "Saved", 1)
+
+
 def test_load_more_keeps_surviving_reviews_across_ties_and_mutations(client, product):
     posted_at = timezone.now()
     reviews = []
@@ -75,7 +318,7 @@ def test_staff_attribution_survives_later_author_edit(
     client.force_login(staff_user)
     moderated = client.post(
         url,
-        {"rating": "3", "comment": "Moderated feedback"},
+        {"rating": "3", "comment": "Moderated feedback", "revision": "1"},
         HTTP_HX_REQUEST="true",
     )
     assert moderated.status_code == 200
@@ -88,7 +331,9 @@ def test_staff_attribution_survives_later_author_edit(
     assert "Edited by staff" in moderated.content.decode()
 
     client.force_login(customer)
-    saved = client.post(url, {"rating": "5", "comment": "Author revision"})
+    saved = client.post(
+        url, {"rating": "5", "comment": "Author revision", "revision": "2"}
+    )
     assert saved.status_code == 302
     review.refresh_from_db()
     assert (review.rating, review.comment) == (5, "Author revision")
@@ -119,13 +364,25 @@ def test_staff_moderation_forms_deletion_and_replacement(
     assert "Customer feedback" in opened.content.decode()
     assert ("<html" in opened.content.decode()) is (not enhanced)
     invalid = client.post(
-        edit, {"rating": "6", "comment": "Staff draft", "location": "public"}, **headers
+        edit,
+        {
+            "rating": "6",
+            "comment": "Staff draft",
+            "location": "public",
+            "revision": "1",
+        },
+        **headers,
     )
     assert "Staff draft" in invalid.content.decode()
     assert "Ensure this value is less than or equal to 5." in invalid.content.decode()
     saved = client.post(
         edit,
-        {"rating": "4", "comment": "Staff revision", "location": "public"},
+        {
+            "rating": "4",
+            "comment": "Staff revision",
+            "location": "public",
+            "revision": "1",
+        },
         **headers,
     )
     assert saved.status_code == (200 if enhanced else 302)
@@ -193,7 +450,12 @@ def test_older_author_review_loaded_and_mutated_in_both_locations(
     assert "outerHTML" in first.content.decode()
     edited = client.post(
         reverse("products:review_edit", args=[product.slug, own.pk]),
-        {"rating": "3", "comment": "Updated older feedback", "location": location},
+        {
+            "rating": "3",
+            "comment": "Updated older feedback",
+            "location": location,
+            "revision": "1",
+        },
         HTTP_HX_REQUEST="true",
     )
     body = edited.content.decode()
@@ -225,7 +487,7 @@ def test_staff_own_review_does_not_gain_moderation_attribution(
     client.force_login(customer)
     response = client.post(
         reverse("products:review_edit", args=[product.slug, review.pk]),
-        {"rating": "4", "comment": "Own revision"},
+        {"rating": "4", "comment": "Own revision", "revision": "1"},
         HTTP_HX_REQUEST="true",
     )
     assert response.status_code == 200
@@ -323,7 +585,9 @@ def test_only_author_can_edit_review_after_purchase_cancellation(
     )
 
     opened = client.get(url)
-    saved = client.post(url, {"rating": "5", "comment": "  Revised feedback  "})
+    saved = client.post(
+        url, {"rating": "5", "comment": "  Revised feedback  ", "revision": "1"}
+    )
     review.refresh_from_db()
 
     assert review.rating == (5 if is_author else 2)
@@ -410,7 +674,9 @@ def test_publication_and_edit_responses_synchronize_saved_displays(
 
     edit = reverse("products:review_edit", args=[product.slug, review.pk])
     saved = client.post(
-        edit, {"rating": "2", "comment": "Updated", "location": "public"}, **headers
+        edit,
+        {"rating": "2", "comment": "Updated", "location": "public", "revision": "1"},
+        **headers,
     )
     review.refresh_from_db()
     assert (review.rating, review.comment, review.revision) == (2, "Updated", 2)
@@ -465,7 +731,12 @@ def test_invalid_review_retains_fields_and_saved_state(
         url = reverse("products:review_create", args=[product.slug])
     response = client.post(
         url,
-        {"rating": "6", "comment": "Draft retained", "location": "public"},
+        {
+            "rating": "6",
+            "comment": "Draft retained",
+            "location": "public",
+            "revision": "1",
+        },
         **({"HTTP_HX_REQUEST": "true"} if enhanced else {}),
     )
     page = response.content.decode()

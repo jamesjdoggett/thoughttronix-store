@@ -197,6 +197,17 @@ class Review(models.Model):
     def __str__(self):
         return f"Review by {self.author} of {self.product}"
 
+    def edit(self, *, revision: int, rating: int, comment: str, editor) -> bool:
+        """Save only against the displayed revision in one atomic update."""
+        changes = {"rating": rating, "comment": comment}
+        if editor.is_staff and editor.pk != self.author_id:
+            changes.update(staff_editor=editor, staff_edited_at=timezone.now())
+        return bool(
+            type(self)
+            .objects.filter(pk=self.pk, revision=revision)
+            .update(**changes, revision=models.F("revision") + 1)
+        )
+
 
 @receiver(post_delete, sender=Product)
 def delete_product_images(sender, instance: Product, using: str, **kwargs) -> None:

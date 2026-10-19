@@ -530,3 +530,25 @@ Each entry has this shape:
     - **Outcome:** what was built and what was kept
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
+
+## 2026-10-18 - Product reviews Phase 3 concurrent editing and conflicts
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/product-reviews.md @plans/product-reviews.md implement phase 3"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full feedback checks, browser confirmation, logging, commit, and push.
+4. "approved" - approved three TDD behaviors: atomic stale-save rejection, explicit retries with repeated conflicts, and draft retention after deletion.
+5. "approved" - approved the assertion-failing atomic customer/staff race test.
+6. "approved" - approved the atomic guard and conflict comparison implementation after four passing race cases and 65 passing review tests.
+7. "approved" - approved the same-account two-tab retry test and behavior, which passed immediately with the first implementation in HTMX and standard-form modes.
+8. "approved" - approved the deletion-race test failing on 404 and 500 response assertions.
+9. "approved" - approved deletion feedback and draft retention after four passing deletion cases and 71 passing review tests, authorizing the remaining phase checks.
+10. "Manual browser verification passed. Continue with the implement skill, update PROMPTS.md, commit this phase, and push to GitHub."
+
+### Summary
+
+- **Outcome:** Implemented only phase 3. Edit forms carry a required revision; a conditional database update atomically rejects stale saves while retaining authorship and staff attribution. Conflict responses retain entered rating/comment, show the latest saved version, and allow an explicit retry against its revision. Another intervening save produces another conflict. HTMX updates summaries and saved review cards using selectors that preserve open forms. Deletion before submission or during the write returns useful feedback with the draft retained and no Save button; repeated submissions cannot recreate the review. Standard-form fallbacks support conflicts, retry, and deletion feedback. Marked phase 3 complete following the user's browser confirmation; phase 4 remains unimplemented. Prepared the phase for the explicitly requested commit and GitHub push.
+- **Verification:** The atomic guard and deletion behaviors completed approved assertion-failing RED/GREEN cycles and review regression checks. The retry test passed immediately using the atomic guard implementation; reported that fact and obtained user approval without manufacturing a failure. Full suite: 560 passed in 280.08 seconds. After final snapshot cleanup and added regression coverage, all 78 review tests passed; 567 tests collected overall. Ruff lint and formatting checks, Django system checks, migration consistency, Git whitespace checks, and forced production CSS build passed. Additional coverage verifies invalid/missing revisions, escaped comparison text, accurate conflict summaries, preserved attribution, and saved-card selectors that avoid replacing unrelated forms. Supplied six numbered browser steps using the existing Calm Collar review fixtures; the user confirmed manual verification passed without enumerating individual scenario results.
+- **Deviations:** Honored all applicable approval checkpoints and waited for manual confirmation before logging and Git finalization. No new migrations, custom JavaScript, seed invocation, local review-fixture mutations, or phase 4 failure/session recovery were introduced. Appended this entry without rewriting prior log entries.
+- **Sideways:** uv's external cache required approved escalation. The deletion-during-write test initially raised the server exception; configured the test client to capture the 500 response so RED failed on the intended response assertion. Review found ModelForm validation mutating the saved comparison instance; validated submitted edits with a separate form instance to keep the saved snapshot intact. Existing edit tests now include revision values while retaining their original assertions. Git emitted line-ending conversion warnings without whitespace errors.

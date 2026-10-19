@@ -2,13 +2,11 @@
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import F
-from django.http import HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 from django.views import View
 
-from .forms import ReviewForm
+from .forms import ReviewEditForm, ReviewForm
 from .models import Product, Review
 from .review_services import can_review, publish_review, review_context
 
@@ -30,7 +28,16 @@ class ReviewView(LoginRequiredMixin, View):
         value = self.request.POST.get("location", self.request.GET.get("location"))
         return "public" if value == "public" else "own"
 
-    def render_form(self, product, *, review=None, form=None, deleting=False):
+    def render_form(
+        self,
+        product,
+        *,
+        review=None,
+        form=None,
+        deleting=False,
+        conflict=False,
+        deleted=False,
+    ):
         """Keep invalid fields in the originating inline form or a full page."""
         context = {
             "product": product,
@@ -38,7 +45,12 @@ class ReviewView(LoginRequiredMixin, View):
             "form": form,
             "location": self.get_location(),
             "deleting": deleting,
+            "conflict": conflict,
+            "deleted": deleted,
+            "enhanced": self.request.headers.get("HX-Request") == "true",
         }
+        if conflict or deleted:
+            context.update(review_context(product, self.request.user))
         template = "products/review_form.html"
         if self.request.headers.get("HX-Request") == "true":
             template = (
@@ -73,6 +85,22 @@ class ReviewView(LoginRequiredMixin, View):
 class ReviewEditView(ReviewView):
     """Display and submit a purchaser's inline edit form."""
 
+    def deleted_response(self, product, pk):
+        """Retain a pending draft without providing a way to recreate its row."""
+        review = Review(pk=pk, product=product)
+        form = ReviewEditForm(
+            self.request.POST,
+            auto_id=f"id_{self.get_location()}_%s",
+        )
+        form.is_valid()
+        form.add_error(
+            None,
+            "This review was deleted while you were editing. Your draft is kept "
+            "below for copying, but it cannot be saved to the deleted review. "
+            "Return to the product to check whether you can publish a new review.",
+        )
+        return self.render_form(product, review=review, form=form, deleted=True)
+
     def get(self, request, slug, pk):
         product = get_object_or_404(Product, slug=slug)
         review = self.get_review(product, pk)
@@ -91,28 +119,41 @@ class ReviewEditView(ReviewView):
         return self.render_form(
             product,
             review=review,
-            form=ReviewForm(instance=review, auto_id=f"id_{self.get_location()}_%s"),
+            form=ReviewEditForm(
+                instance=review, auto_id=f"id_{self.get_location()}_%s"
+            ),
         )
 
     def post(self, request, slug, pk):
         product = get_object_or_404(Product, slug=slug)
-        review = self.get_review(product, pk)
-        form = ReviewForm(
-            request.POST, instance=review, auto_id=f"id_{self.get_location()}_%s"
-        )
+        try:
+            review = self.get_review(product, pk)
+        except Http404:
+            if Review.objects.filter(pk=pk).exists():
+                raise
+            return self.deleted_response(product, pk)
+        form = ReviewEditForm(request.POST, auto_id=f"id_{self.get_location()}_%s")
         if not form.is_valid():
             return self.render_form(product, review=review, form=form)
-        attribution = {}
-        if request.user.is_staff and review.author_id != request.user.pk:
-            attribution = {
-                "staff_editor": request.user,
-                "staff_edited_at": timezone.now(),
-            }
-        # Posting time and author survive moderation; author edits retain attribution.
-        Review.objects.filter(pk=review.pk).update(
-            **form.cleaned_data, **attribution, revision=F("revision") + 1
-        )
-        review.refresh_from_db()
+        if not review.edit(**form.cleaned_data, editor=request.user):
+            try:
+                review.refresh_from_db()
+            except Review.DoesNotExist:
+                return self.deleted_response(product, pk)
+            data = request.POST.copy()
+            data["revision"] = review.revision
+            form = ReviewEditForm(data, auto_id=f"id_{self.get_location()}_%s")
+            form.is_valid()
+            form.add_error(
+                None,
+                "This review changed while you were editing. Your draft has been "
+                "kept. Compare the latest saved version below, then Save to retry.",
+            )
+            return self.render_form(product, review=review, form=form, conflict=True)
+        try:
+            review.refresh_from_db()
+        except Review.DoesNotExist:
+            return self.deleted_response(product, pk)
         return self.success(product, mutation="edit", review=review)
 
 

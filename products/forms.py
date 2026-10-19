@@ -117,6 +117,16 @@ class ReviewForm(StyledModelForm):
         fields = ["rating", "comment"]
 
 
+class ReviewEditForm(ReviewForm):
+    """Carry the saved revision displayed when this edit was opened."""
+
+    revision = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initial["revision"] = self.instance.revision
+
+
 class TagForm(StyledModelForm):
     class Meta:
         model = Tag

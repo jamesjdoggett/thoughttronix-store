@@ -1,4 +1,4 @@
-<article id="review-{{ location }}-{{ review.pk }}" class="review-copy card bg-base-100 shadow-sm" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+<article id="review-{{ location }}-{{ review.pk }}" class="review-copy card bg-base-100 shadow-sm" {% if saved_only %}hx-swap-oob="outerHTML:article#review-{{ location }}-{{ review.pk }}"{% elif oob %}hx-swap-oob="outerHTML"{% endif %}>
   <div class="card-body gap-3">
     <div class="flex flex-wrap items-center gap-2">
       <span class="font-semibold">{{ review.author.username }}</span>

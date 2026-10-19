@@ -2,7 +2,7 @@
 
 > Source PRD: [ThoughtTronix Product Reviews](../prd/product-reviews.md)
 >
-> Four-phase breakdown approved by the user on 2026-10-18. Phases 1-2 implemented and manually verified by the user on 2026-10-18; phases 3-4 remain unimplemented.
+> Four-phase breakdown approved by the user on 2026-10-18. Phases 1-3 implemented and manually verified by the user on 2026-10-18; phase 4 remains unimplemented.
 
 ## Architectural decisions
 
@@ -89,6 +89,8 @@
 
 ## Phase 3: Concurrent editing and conflict handling
 
+**Status:** Complete. Full suite: 560 passed; after final snapshot cleanup and expanded coverage, all 78 review tests passed (567 tests collected overall). Ruff lint/format, Django system and migration checks, Git whitespace checks, and a forced production CSS build passed. No new migrations or custom JavaScript. The user confirmed browser verification passed on 2026-10-18.
+
 **User stories:** 14, 20, 22-23 (4 distinct stories). Story 20 is newly completed; the others extend validation and synchronization to conflict recovery.
 
 **Dependencies:** Phases 1-2: author/staff editing, revision state, loaded representations, and attribution.
@@ -99,11 +101,11 @@
 
 ### Acceptance criteria
 
-- [ ] In two browser sessions, open the same review, save one edit, and submit the other. The newer saved version survives; the second editor sees their intact draft and the latest saved version for comparison before explicitly retrying.
-- [ ] A second concurrent change before retry produces another conflict. Tests exercise the atomic stale-revision guard rather than only form-open checks.
-- [ ] Conflicts leave persisted summaries and other saved displays accurate, preserve attribution, and do not replace unrelated open forms or lose page position.
-- [ ] Delete a review in another session while editing it; the pending editor receives useful feedback with their draft retained, and a failed edit cannot recreate it.
-- [ ] Conflict feedback and explicit retry work with both HTMX and standard forms. Tests cover customer/staff races and multiple tabs of the same account.
+- [x] In two browser sessions, open the same review, save one edit, and submit the other. The newer saved version survives; the second editor sees their intact draft and the latest saved version for comparison before explicitly retrying.
+- [x] A second concurrent change before retry produces another conflict. Tests exercise the atomic stale-revision guard rather than only form-open checks.
+- [x] Conflicts leave persisted summaries and other saved displays accurate, preserve attribution, and do not replace unrelated open forms or lose page position.
+- [x] Delete a review in another session while editing it; the pending editor receives useful feedback with their draft retained, and a failed edit cannot recreate it.
+- [x] Conflict feedback and explicit retry work with both HTMX and standard forms. Tests cover customer/staff races and multiple tabs of the same account.
 
 ---
 

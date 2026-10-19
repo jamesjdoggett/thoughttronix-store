@@ -6,17 +6,29 @@
     {% csrf_token %}
     <input type="hidden" name="location" value="{{ location }}" />
     {% for error in form.non_field_errors %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endfor %}
+    {% if conflict %}
+      <aside class="rounded-box border border-base-300 p-4 space-y-2" aria-label="Latest saved version">
+        <h2 class="font-semibold">Latest saved version</h2>
+        <p>{{ review.author.username }} · {{ review.rating }} out of 5 stars</p>
+        {% if review.staff_edited_at %}<p class="badge badge-outline">Edited by staff</p>{% endif %}
+        <p class="break-words">{{ review.comment|linebreaksbr }}</p>
+      </aside>
+    {% endif %}
     {% for field in form %}
+      {% if field.is_hidden %}{{ field }}{% for error in field.errors %}<p class="text-sm text-error" role="alert">{{ error }}</p>{% endfor %}{% else %}
       <div class="space-y-2">
         <label class="label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.name == 'rating' %} (1–5 stars){% endif %}</label>
         {{ field }}
         {% for error in field.errors %}<p class="text-sm text-error" role="alert">{{ error }}</p>{% endfor %}
       </div>
+      {% endif %}
     {% endfor %}
-    <p class="text-sm opacity-60">Write 1–2,000 characters. Your review is published immediately.</p>
+    {% if not deleted %}<p class="text-sm opacity-60">Write 1–2,000 characters. Your review is published immediately.</p>{% endif %}
     <div class="flex gap-3">
-      <button class="btn btn-primary" type="submit" hx-disabled-elt="this">{% if review %}Save{% else %}Publish review{% endif %}</button>
-      {% if review %}
+      {% if not deleted %}<button class="btn btn-primary" type="submit" hx-disabled-elt="this">{% if review %}Save{% else %}Publish review{% endif %}</button>{% endif %}
+      {% if deleted %}
+        <a class="btn btn-ghost" href="{{ product.get_absolute_url }}#reviews">Return to product</a>
+      {% elif review %}
         <a class="btn btn-ghost" href="{{ product.get_absolute_url }}#reviews"
            hx-get="{% url 'products:review_edit' product.slug review.pk %}?cancel=1&amp;location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Cancel</a>
       {% else %}
@@ -25,3 +37,18 @@
     </div>
   </form>
 </div>
+{% if conflict %}
+  {% include "products/partials/_review_summary.html" with oob=enhanced %}
+  {% if enhanced %}
+    {% include "products/partials/_review_card.html" with location="own" saved_only=True %}
+    {% include "products/partials/_review_card.html" with location="public" saved_only=True %}
+  {% endif %}
+{% endif %}
+{% if deleted %}
+  {% include "products/partials/_review_summary.html" with oob=enhanced %}
+  {% if enhanced %}
+    <div hx-swap-oob="delete:article#review-own-{{ review.pk }}"></div>
+    <div hx-swap-oob="delete:article#review-public-{{ review.pk }}"></div>
+    {% include "products/partials/_review_empty.html" with oob=True %}
+  {% endif %}
+{% endif %}
