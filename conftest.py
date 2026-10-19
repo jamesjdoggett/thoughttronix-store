@@ -68,6 +68,22 @@ def tag(db):
 
 
 @pytest.fixture
+def paginated_wishlist(customer, category):
+    from wishlist.models import Wishlist
+
+    wishlist = Wishlist.for_user(customer)
+    for number in range(22):
+        saved_product = Product.objects.create(
+            name=f"Wishlist product {number:02}",
+            slug=f"wishlist-product-{number}",
+            price=Decimal("10.00"),
+            category=category,
+        )
+        wishlist.add(saved_product)
+    return wishlist
+
+
+@pytest.fixture
 def cart(customer):
     return Cart.for_user(customer)
 

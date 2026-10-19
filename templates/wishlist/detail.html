@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Your wishlist — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold">Your wishlist</h1>
+    <a href="{% url 'products:catalog' %}" class="btn btn-ghost">Browse products</a>
+  </div>
+  {% include "wishlist/partials/_contents.html" %}
+{% endblock %}

@@ -40,6 +40,15 @@
         {% include "orders/partials/_add_button.html" with in_cart=cart_quantities|quantity_of:product.pk %}
       </div>
 
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        {% if user.is_authenticated %}
+          {% include "wishlist/partials/_save_control.html" with return_url=product.get_absolute_url %}
+          <a href="{% url 'wishlist:detail' %}" class="link link-hover">Your wishlist</a>
+        {% else %}
+          <a href="{% url 'accounts:login' %}?next={{ product.get_absolute_url|urlencode }}" class="btn btn-outline">Sign in to save</a>
+        {% endif %}
+      </div>
+
       {% if product.description %}
         <div class="prose mt-6 max-w-none text-base-content">
           <p>{{ product.description|linebreaksbr }}</p>

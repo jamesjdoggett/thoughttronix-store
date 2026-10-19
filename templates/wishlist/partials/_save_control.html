@@ -1,0 +1,12 @@
+<div id="wishlist-control-{{ product.pk }}" hx-target="this" hx-swap="outerHTML">
+{% if save_error %}<p class="alert alert-error" role="alert">{{ save_error }}</p>{% endif %}
+{% if is_saved or product.is_available %}
+<form method="post" action="{% if is_saved %}{% url 'wishlist:remove' product.pk %}{% else %}{% url 'wishlist:save' product.pk %}{% endif %}"
+      hx-post="{% if is_saved %}{% url 'wishlist:remove' product.pk %}{% else %}{% url 'wishlist:save' product.pk %}{% endif %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ return_url }}" />
+  <button type="submit" class="btn btn-outline btn-sm" {% if is_saved %}aria-label="Saved — remove from wishlist"{% endif %}>{% if is_saved %}Saved{% else %}Save to wishlist{% endif %}</button>
+</form>
+{% endif %}
+</div>
+{% if oob_count %}{% include "wishlist/partials/_count.html" %}{% endif %}

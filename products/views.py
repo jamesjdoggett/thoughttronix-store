@@ -47,6 +47,15 @@ class CatalogView(ListView):
         context["active_tag"] = self.request.GET.get("tag", "")
         context["categories"] = Category.objects.all()
         context["tags"] = Tag.objects.all()
+        if self.request.user.is_authenticated:
+            from wishlist.models import WishlistEntry
+
+            context["saved_product_ids"] = set(
+                WishlistEntry.objects.filter(
+                    wishlist__user=self.request.user,
+                    product__in=context["products"],
+                ).values_list("product_id", flat=True)
+            )
         return context
 
 
@@ -69,6 +78,18 @@ class ProductDetailView(DetailView):
     template_name = "products/detail.html"
     context_object_name = "product"
     queryset = Product.objects.select_related("category").prefetch_related("tags")
+
+    def get_context_data(self, **kwargs):
+        from wishlist.models import WishlistEntry
+
+        context = super().get_context_data(**kwargs)
+        context["is_saved"] = (
+            self.request.user.is_authenticated
+            and WishlistEntry.objects.filter(
+                wishlist__user=self.request.user, product=self.object
+            ).exists()
+        )
+        return context
 
 
 # --- The back office --------------------------------------------------------

@@ -1,5 +1,28 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-18 - Customer Wishlist Phase 3 HTMX interactions
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/customer-wishlist.md @plans/wishlist.md implement phase 3"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full checks, manual browser confirmation, session logging, commit and push.
+4. "I approve the selected TDD behaviors. Follow the TDD skill's RED/GREEN process and required approval checkpoints. Continue implementing Phase 3 only."
+5. "I approve this RED test as the definition of correct behavior. Implement the minimum code needed to make it pass, confirm GREEN, run the relevant regression tests, and stop for my review."
+6. "I approve this GREEN result. It implements the intended response behavior, not just the test. Continue with the remaining Phase 3 requirements, including browser control wiring. Follow the TDD process for any remaining selected behaviors. Do not begin Phase 4."
+7. "I approve this RED test as the definition of correct behavior. Implement the minimum code needed to make it pass, confirm GREEN, run the relevant regression tests, and stop for my review. Ensure browser wiring is completed before Phase 3 is considered finished. Do not implement Phase 4."
+8. "I approve this GREEN result. It implements the intended behavior. Finish all remaining Phase 3 requirements, including browser wiring. Run the full test suite, Ruff, and other relevant checks. Then give me numbered browser verification steps and stop for my confirmation. Do not implement Phase 4."
+9. "I approve this RED test. Implement the minimum code needed to make it pass, confirm GREEN, run the relevant regression tests, and stop for my review. Finish browser wiring and full checks after the TDD cycles. Do not implement Phase 4."
+10. "Approved. Continue with the implement skill."
+11. "Manual browser verification passed. Continue with the implement skill: update PROMPTS.md, commit Phase 3, and push to GitHub. Report the commit hash and confirm the working tree is clean."
+
+### Summary
+
+- **Outcome:** Implemented Wishlist Phase 3 only: shared HTMX save/remove controls on catalog, category and detail pages; partial owner-list removal with pagination recovery and empty states; out-of-band navbar counts; and inline availability rejection feedback. Preserved ordinary POST forms, CSRF protection, owner isolation, local-return validation, idempotent saves and existing full-page sign-in redirects without mutation replay. No Phase 4 cart integration or sharing was implemented. Marked Phase 3 acceptance criteria complete after manual verification.
+- **Verification:** Completed all three selected TDD behaviors through assertion-failing RED tests, explicit user approval, GREEN implementation, regression tests and explicit user review. The full suite passed 451 tests; after expanding HTMX security coverage, all 50 wishlist tests passed. Ruff lint and formatting checks passed, as did Django system checks, migration consistency and a forced production CSS build. The user confirmed the numbered browser verification passed; no scenario-specific results beyond that confirmation are claimed.
+- **Deviations:** No design recommendations were overridden. The user repeatedly emphasized finishing browser wiring and excluding Phase 4; wiring was completed after the selected TDD cycles. Existing uncommitted Phase 1/2 wishlist foundations, migration, integration files, PRD, plan and implement/TDD skill files were preserved and included in the final checkpoint because Phase 3 depends on that foundation and the user requested a clean working tree. Those earlier-phase files were present before this session's implementation.
+- **Sideways:** Initial uv test commands could not access the cache outside the workspace; approved escalated commands resolved that restriction. The three intended RED failures were 302 redirects where HTMX partial responses were required. Ruff initially identified two files needing formatting; they were formatted and rechecked. Existing form tests were adjusted for HTMX attributes while retaining fallback assertions. The first CSS build reported output up to date, so a forced rebuild verified compilation. No history was rewritten or prior work discarded.
+
 ## 2026-10-11 - Account Security Center Phase 7 and complete feature review
 
 ### Prompts
