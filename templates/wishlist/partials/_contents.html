@@ -21,6 +21,7 @@
             <input type="hidden" name="next" value="{{ return_url|default:request.get_full_path }}" />
             <button class="btn btn-outline btn-sm" type="submit" aria-label="Remove {{ entry.product.name }} from wishlist">Remove</button>
           </form>
+          {% include "wishlist/partials/_cart_control.html" with product=entry.product %}
         </li>
       {% endfor %}
     </ul>

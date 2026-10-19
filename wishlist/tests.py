@@ -16,7 +16,45 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
+from orders.models import Cart
+
 from .models import Wishlist, WishlistEntry
+
+
+@pytest.mark.parametrize("htmx", [False, True])
+@pytest.mark.parametrize("initial_quantity", [0, 2])
+def test_owner_cart_addition_preserves_saved_interest(
+    client, customer, paginated_wishlist, htmx, initial_quantity
+):
+    client.force_login(customer)
+    destination = reverse("wishlist:detail") + "?page=2"
+    before = list(paginated_wishlist.entries.values_list("pk", "saved_at"))
+    response = client.get(destination)
+    product = response.context["entries"][0].product
+    cart = Cart.for_user(customer)
+    for _ in range(initial_quantity):
+        cart.add(product)
+
+    forms = re.findall(r"<form\b.*?</form>", response.content.decode(), re.S)
+    cart_form = next((form for form in forms if "Add to cart" in form), None)
+    assert cart_form is not None, "Available wishlist rows must offer Add to cart"
+    action = unescape(re.search(r'action="([^"]+)"', cart_form).group(1))
+    response = client.post(
+        action,
+        {"next": destination},
+        **({"HTTP_HX_REQUEST": "true"} if htmx else {}),
+    )
+
+    assert response.status_code == (200 if htmx else 302)
+    if not htmx:
+        assert response.url == destination
+    assert cart.items.get(product=product).quantity == initial_quantity + 1
+    assert list(paginated_wishlist.entries.values_list("pk", "saved_at")) == before
+    refreshed = client.get(destination)
+    assert refreshed.context["wishlist_item_count"] == len(before)
+    assert [entry.pk for entry in refreshed.context["entries"]] == [
+        pk for pk, _ in before[20:]
+    ]
 
 
 @pytest.mark.parametrize("surface", ["catalog", "category", "detail"])
@@ -555,7 +593,7 @@ def test_owner_isolation_and_no_creation_on_read(
     assert owner_list.entries.count() == 1
 
 
-@pytest.mark.parametrize("action", ["save", "remove"])
+@pytest.mark.parametrize("action", ["save", "remove", "add_to_cart"])
 @pytest.mark.parametrize("htmx", [False, True])
 def test_post_and_csrf_required(client, customer, product, action, htmx):
     entry = Wishlist.for_user(customer).add(product)
@@ -603,7 +641,7 @@ def test_external_returns_rejected(client, customer, product, destination, htmx)
 
 
 @pytest.mark.parametrize("htmx", [False, True])
-@pytest.mark.parametrize("action", ["save", "remove"])
+@pytest.mark.parametrize("action", ["save", "remove", "add_to_cart"])
 def test_expired_session_login_never_replays(
     client, customer, staff_user, product, htmx, action
 ):
@@ -631,6 +669,7 @@ def test_expired_session_login_never_replays(
     assert response.status_code == 200
     assert WishlistEntry.objects.get().pk == original.pk
     assert not Wishlist.objects.filter(user=staff_user).exists()
+    assert not Cart.objects.exists()
 
 
 def test_anonymous_links_and_private_page(client, product):

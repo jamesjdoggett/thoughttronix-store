@@ -11,6 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView
 
+from orders.models import Cart
 from products.models import Product
 
 from .models import Wishlist, WishlistEntry
@@ -48,6 +49,40 @@ class WishlistMutationView(LoginRequiredMixin, View):
         if self.request.headers.get("HX-Request") == "true":
             return HttpResponse(headers={"HX-Redirect": response.url})
         return response
+
+
+class AddSavedProductToCartView(WishlistMutationView):
+    def post(self, request, pk):
+        entry = get_object_or_404(
+            WishlistEntry.objects.select_related("product"),
+            wishlist__user=request.user,
+            product_id=pk,
+        )
+        product = entry.product
+        error = ""
+        if product.is_available:
+            item = Cart.for_user(request.user).add(product)
+            feedback = f"{product.name} added to cart. Quantity: {item.quantity}."
+        else:
+            error = "This product is no longer available and could not be added to your cart."
+            feedback = error
+        if request.headers.get("HX-Request") == "true":
+            return render(
+                request,
+                "wishlist/partials/_cart_control.html",
+                {
+                    "product": product,
+                    "return_url": self.get_return_url(),
+                    "cart_feedback": feedback,
+                    "cart_error": error,
+                    "oob_badge": True,
+                },
+            )
+        if error:
+            messages.error(request, feedback)
+        else:
+            messages.success(request, feedback)
+        return redirect(self.get_return_url())
 
 
 class SaveProductView(WishlistMutationView):

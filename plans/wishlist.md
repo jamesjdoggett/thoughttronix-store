@@ -97,13 +97,13 @@ Let an owner add an available saved product to their cart directly from its wish
 
 ### Acceptance criteria
 
-- [ ] Available owner rows provide Add to cart; adding creates a cart line or increments the existing line according to existing cart rules.
-- [ ] Successful additions preserve wishlist membership, save time, ordering, and wishlist count.
-- [ ] Cart feedback and the navbar cart count reflect additions through HTMX; ordinary forms provide a usable full-page result and return to the wishlist.
-- [ ] Saved unavailable products remain visible and removable but provide no enabled buying action. Requests cannot add a product that becomes unavailable after page load.
-- [ ] Cart actions require authentication, POST, and CSRF protection and use the authenticated account's cart. Expired sessions return through sign-in without replaying the action.
-- [ ] Existing checkout verification requirements continue to apply, and purchasing does not remove saved interest.
-- [ ] Tests cover new and existing cart lines, unavailable products, wishlist independence, feedback, authentication, and ordinary-form fallbacks; the full suite passes.
+- [x] Available owner rows provide Add to cart; adding creates a cart line or increments the existing line according to existing cart rules.
+- [x] Successful additions preserve wishlist membership, save time, ordering, and wishlist count.
+- [x] Cart feedback and the navbar cart count reflect additions through HTMX; ordinary forms provide a usable full-page result and return to the wishlist.
+- [x] Saved unavailable products remain visible and removable but provide no enabled buying action. Requests cannot add a product that becomes unavailable after page load.
+- [x] Cart actions require authentication, POST, and CSRF protection and use the authenticated account's cart. Expired sessions return through sign-in without replaying the action.
+- [x] Existing checkout verification requirements continue to apply, and purchasing does not remove saved interest.
+- [x] Tests cover new and existing cart lines, unavailable products, wishlist independence, feedback, authentication, and ordinary-form fallbacks; the full suite passes.
 
 ---
 

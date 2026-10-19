@@ -1,5 +1,24 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-18 - Customer Wishlist Phase 4 cart integration
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/customer-wishlist.md @plans/wishlist.md implement phase 4"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full checks, manual browser confirmation, session logging, commit and push.
+4. "Approved. Continue with the TDD skill." - approved the selected cart/wishlist independence behavior.
+5. "Approved. Continue with the TDD skill." - approved the assertion-failing RED test as the definition of correct.
+6. "Approved. Continue." - approved the GREEN result and continued implementation.
+7. "confirmed." - confirmed manual browser verification passed.
+
+### Summary
+
+- **Outcome:** Implemented Wishlist Phase 4 only. Available owner rows offer ordinary POST and HTMX Add to cart forms, creating or incrementing the authenticated owner's cart line through existing cart rules. Partial feedback updates the row control and navbar cart count. Wishlist membership, save times, ordering and counts remain intact, including after purchase. Unavailable products retain removal controls and cannot be added. Reused owner-scoped authentication, CSRF, POST and local-return protection, including full-page sign-in without replay for expired HTMX sessions. Marked Phase 4 complete after the user's browser confirmation; sharing remains outside this phase.
+- **Verification:** Completed one approved TDD behavior through an assertion-failing RED test, user approval, GREEN implementation, passing wishlist/order regressions and user review. Added coverage for feedback, availability changes, owner isolation, CSRF, safe returns, expired sessions, purchase independence and unchanged checkout verification. All 477 tests passed, along with Ruff lint and formatting, Django system checks, migration consistency and the Tailwind build command. The user confirmed browser verification; no scenario-specific results beyond that confirmation are claimed.
+- **Deviations:** No design recommendations were overridden. Paused at the skill's required selection, RED, GREEN and browser checkpoints before continuing with approval.
+- **Sideways:** uv initially could not access its external cache in the sandbox; approved escalation enabled checks. An existing pagination regression selected the first wishlist form and submitted the newly added cart action instead of removal; placing Add to cart after the existing Remove form preserved that regression's intended path, and all 222 wishlist/order tests then passed. Exploratory reads referenced nonexistent template and test paths; subsequent reads used the actual files. No seed or database reset was performed.
+
 ## 2026-10-18 - Customer Wishlist Phase 3 HTMX interactions
 
 ### Prompts

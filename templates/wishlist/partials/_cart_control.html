@@ -1,0 +1,21 @@
+{% load cart_extras %}
+<div id="wishlist-cart-{{ product.pk }}" class="space-y-2">
+  {% if product.is_available %}
+    <form method="post" action="{% url 'wishlist:add_to_cart' product.pk %}"
+          hx-post="{% url 'wishlist:add_to_cart' product.pk %}"
+          hx-target="#wishlist-cart-{{ product.pk }}" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ return_url|default:request.get_full_path }}" />
+      <button class="btn btn-primary btn-sm" type="submit">Add to cart</button>
+      {% with quantity=cart_quantities|quantity_of:product.pk %}
+        {% if quantity %}<span class="text-sm">In cart: {{ quantity }}</span>{% endif %}
+      {% endwith %}
+    </form>
+  {% else %}
+    <button class="btn btn-outline btn-sm" disabled>Unavailable</button>
+  {% endif %}
+  {% if cart_feedback %}
+    <p class="text-sm {% if cart_error %}text-warning{% else %}text-success{% endif %}" role="status">{{ cart_feedback }}</p>
+  {% endif %}
+</div>
+{% if oob_badge %}{% include "orders/partials/_cart_badge.html" with oob=True %}{% endif %}
