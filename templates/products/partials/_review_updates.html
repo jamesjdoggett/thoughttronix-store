@@ -1,5 +1,5 @@
 {% include "products/partials/_review_summary.html" with oob=True %}
-{% include "products/partials/_your_review.html" with oob=True %}
+{% if update_own %}{% include "products/partials/_your_review.html" with oob=True %}{% endif %}
 {% include "products/partials/_review_empty.html" with oob=True %}
 {% if mutation == 'create' %}
   <div hx-swap-oob="afterbegin:#review-list">

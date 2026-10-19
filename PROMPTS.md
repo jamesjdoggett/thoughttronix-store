@@ -1,5 +1,26 @@
 # PROMPTS.md — AI Usage Log
 
+## 2026-10-18 - Product reviews Phase 2 staff moderation and additional loading
+
+### Prompts
+
+1. Provided the repository's AGENTS.md instructions and Windows workspace context.
+2. "$implement @prd/product-reviews.md @plans/product-reviews.md implement phase 2"
+3. Supplied the implement skill instructions, including TDD approval checkpoints, full feedback checks, manual browser confirmation, session logging, commit, and push.
+4. "approved" - approved the two TDD selections: persistent staff attribution and stable pagination across tied posting times and intervening mutations.
+5. "approved" - approved the assertion-failing staff-attribution test.
+6. "approved" - approved the staff-attribution GREEN implementation and 54 passing review tests.
+7. "approved" - approved the assertion-failing pagination test.
+8. "approved" - approved the pagination GREEN implementation and 55 passing review tests, authorizing the remaining phase 2 work.
+9. "Manual browser verification passed. Continue with the implement skill, update PROMPTS.md, commit this phase, and push to GitHub."
+
+### Summary
+
+- **Outcome:** Implemented only product reviews phase 2: staff edit/delete controls and server authorization on product-page reviews, persistent latest staff editor/time attribution and Edited by staff labels, preserved customer authorship, inline moderation and ordinary-form fallbacks, and replacement after moderation under existing purchase rules. Added signed, product-scoped timestamp-and-ID cursors for ten-review batches, stable ordering through tied timestamps and intervening creation/deletion, incremental HTMX loading that preserves existing cards and drafts, and standard navigation for older reviews. Loaded author copies synchronize with Your review and summary totals. Moderating another customer's review preserves the staff member's unrelated Your review draft. Prepared 25 local Calm Collar reviews with qualifying purchases and the customer's review oldest, preserving existing passwords and reviews. Marked phase 2 complete after the user's manual confirmation; phases 3-4 remain unimplemented. Updated this log and finalized the phase for commit and push at the user's explicit request.
+- **Verification:** Both selected behaviors completed approved RED/GREEN cycles with review regression checks. Final full suite: 550 passed in 273.07 seconds, including 61 review cases. Ruff lint and formatting checks, Django system checks, migration consistency, Git whitespace checks, and the production CSS build command passed; CSS was already up to date. Added coverage for moderation forms, validation, cancel/delete, attribution persistence, staff personal reviews, replacement, loaded older author copies and synchronization, cursor tampering and cross-product reuse, stable ties, and deleted pagination boundaries. Supplied six browser verification steps covering moderation, loading, drafts, mutations between batches, and disabled JavaScript; the user confirmed they passed.
+- **Deviations:** No recommendations were overridden. Honored every TDD approval checkpoint and waited for manual browser confirmation before logging and Git finalization. No new migrations, custom JavaScript, standalone seed invocation, or next-phase conflict/failure handling was introduced.
+- **Sideways:** uv's external cache required approved escalation. The pagination test initially calculated expected reviews after Django cleared a deleted object's primary key; saved the expected sequence before deletion without changing its intended assertions, then all review tests passed. Ruff fixed import ordering and formatting. Review caught an unrelated-draft replacement during moderation and limited Your review updates to the signed-in author's own mutations. A read-only shell query lost nested quotes under PowerShell, and a piped interactive shell did not execute the fixture block; reran with safe noninteractive input. The expected Seraphine slug was absent locally, so fixture setup rolled back and then used the existing available Calm Collar product successfully. Git reported LF-to-CRLF conversion warnings without whitespace errors.
+
 ## 2026-10-18 - Product reviews Phase 1 customer publication and management
 
 ### Prompts

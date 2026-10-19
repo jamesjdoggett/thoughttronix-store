@@ -73,9 +73,7 @@
     {% include "products/partials/_your_review.html" %}
     {% include "products/partials/_review_empty.html" %}
     <div id="review-list" class="space-y-4">
-      {% for review in reviews %}
-        {% include "products/partials/_review_card.html" with location="public" %}
-      {% endfor %}
+      {% include "products/partials/_review_batch.html" %}
     </div>
   </section>
 {% endblock %}

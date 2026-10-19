@@ -1,5 +1,8 @@
 """Customer review behavior on public product pages."""
 
+import re
+from html import unescape
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
@@ -7,12 +10,247 @@ from django.db import IntegrityError, transaction
 from django.db.models.query import QuerySet
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
 from orders.models import Order, OrderItem
 
 from .forms import ReviewForm
 from .models import Review
 from .review_services import can_review
+
+
+def test_load_more_keeps_surviving_reviews_across_ties_and_mutations(client, product):
+    posted_at = timezone.now()
+    reviews = []
+    for number in range(25):
+        author = get_user_model().objects.create_user(username=f"reader-{number}")
+        reviews.append(
+            Review.objects.create(
+                product=product,
+                author=author,
+                rating=4,
+                comment=f"Feedback {number}",
+                created_at=posted_at,
+            )
+        )
+    ordered = list(reversed(reviews))
+    first = client.get(product.get_absolute_url())
+    assert list(first.context["reviews"]) == ordered[:10]
+    more = re.search(r'id="review-more"\s+href="([^"]+)"', first.content.decode())
+    assert more is not None, "Readers need a Load more navigation control"
+    next_url = unescape(more.group(1))
+
+    # Delete the boundary itself and an unseen review; insert a newer review.
+    ordered[9].delete()
+    removed_pk = ordered[13].pk
+    expected = [review for review in ordered[10:] if review.pk != removed_pk]
+    ordered[13].delete()
+    newcomer = get_user_model().objects.create_user(username="new-reader")
+    Review.objects.create(product=product, author=newcomer, rating=5, comment="New")
+    second = client.get(next_url, HTTP_HX_REQUEST="true")
+    assert second.status_code == 200
+    assert list(second.context["reviews"]) == expected[:10]
+    assert 'id="review-list"' not in second.content.decode()
+    assert 'id="your-review"' not in second.content.decode()
+    more = re.search(r'id="review-more"\s+href="([^"]+)"', second.content.decode())
+    assert more is not None
+    last_url = unescape(more.group(1))
+    last = client.get(last_url, HTTP_HX_REQUEST="true")
+    assert list(last.context["reviews"]) == expected[10:]
+    assert 'id="review-more"' not in last.content.decode()
+    fallback = client.get(last_url)
+    assert list(fallback.context["reviews"]) == expected[10:]
+    assert 'id="your-review"' in fallback.content.decode()
+    assert 'id="review-summary"' in fallback.content.decode()
+    assert fallback.context["review_summary"]["count"] == 24
+
+
+def test_staff_attribution_survives_later_author_edit(
+    client, customer, staff_user, product
+):
+    review = Review.objects.create(
+        product=product, author=customer, rating=2, comment="Original feedback"
+    )
+    url = reverse("products:review_edit", args=[product.slug, review.pk])
+    client.force_login(staff_user)
+    moderated = client.post(
+        url,
+        {"rating": "3", "comment": "Moderated feedback"},
+        HTTP_HX_REQUEST="true",
+    )
+    assert moderated.status_code == 200
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (3, "Moderated feedback")
+    assert review.author == customer
+    assert review.staff_editor == staff_user
+    assert review.staff_edited_at is not None
+    staff_edit_time = review.staff_edited_at
+    assert "Edited by staff" in moderated.content.decode()
+
+    client.force_login(customer)
+    saved = client.post(url, {"rating": "5", "comment": "Author revision"})
+    assert saved.status_code == 302
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (5, "Author revision")
+    assert review.author == customer
+    assert review.staff_editor == staff_user
+    assert review.staff_edited_at == staff_edit_time
+    page = client.get(product.get_absolute_url()).content.decode()
+    assert "Edited by staff" in page
+    assert customer.username in page
+    assert "Verified purchaser" in page
+
+
+@pytest.mark.parametrize("enhanced", [True, False])
+def test_staff_moderation_forms_deletion_and_replacement(
+    client, customer, staff_user, product, review_purchase, enhanced
+):
+    review = Review.objects.create(
+        author=customer, product=product, rating=2, comment="Customer feedback"
+    )
+    client.force_login(staff_user)
+    headers = {"HTTP_HX_REQUEST": "true"} if enhanced else {}
+    edit = reverse("products:review_edit", args=[product.slug, review.pk])
+    delete = reverse("products:review_delete", args=[product.slug, review.pk])
+    page = client.get(product.get_absolute_url()).content.decode()
+    assert edit in page and delete in page
+    opened = client.get(edit, {"location": "public"}, **headers)
+    assert opened.status_code == 200
+    assert "Customer feedback" in opened.content.decode()
+    assert ("<html" in opened.content.decode()) is (not enhanced)
+    invalid = client.post(
+        edit, {"rating": "6", "comment": "Staff draft", "location": "public"}, **headers
+    )
+    assert "Staff draft" in invalid.content.decode()
+    assert "Ensure this value is less than or equal to 5." in invalid.content.decode()
+    saved = client.post(
+        edit,
+        {"rating": "4", "comment": "Staff revision", "location": "public"},
+        **headers,
+    )
+    assert saved.status_code == (200 if enhanced else 302)
+    if enhanced:
+        body = saved.content.decode()
+        assert "Edited by staff" in body
+        assert f'id="review-public-{review.pk}"' in body
+        assert 'id="your-review"' not in body
+        assert 'id="review-list"' not in body
+        assert "4.0 out of 5 stars" in body
+    else:
+        assert saved.url == product.get_absolute_url() + "#reviews"
+    review.refresh_from_db()
+    assert review.author == customer
+    assert review.staff_editor == staff_user
+    confirmation = client.get(delete, {"location": "public"}, **headers)
+    assert "Confirm" in confirmation.content.decode()
+    assert "Cancel" in confirmation.content.decode()
+    assert ("<html" in confirmation.content.decode()) is (not enhanced)
+    cancelled = client.get(edit, {"cancel": "1", "location": "public"}, **headers)
+    assert cancelled.status_code == (200 if enhanced else 302)
+    assert Review.objects.filter(pk=review.pk).exists()
+    removed = client.post(delete, {"location": "public"}, **headers)
+    assert removed.status_code == (200 if enhanced else 302)
+    assert not Review.objects.filter(pk=review.pk).exists()
+    if enhanced:
+        body = removed.content.decode()
+        assert f'id="review-public-{review.pk}" hx-swap-oob="delete"' in body
+        assert "0 reviews" in body
+        assert 'id="your-review"' not in body
+    client.force_login(customer)
+    assert "Publish review" in client.get(product.get_absolute_url()).content.decode()
+    replacement = client.post(
+        reverse("products:review_create", args=[product.slug]),
+        {"rating": "5", "comment": "Replacement"},
+    )
+    assert replacement.status_code == 302
+    assert product.reviews.get().author == customer
+
+
+@pytest.mark.parametrize("location", ["own", "public"])
+def test_older_author_review_loaded_and_mutated_in_both_locations(
+    client, customer, product, location
+):
+    own = Review.objects.create(
+        author=customer, product=product, rating=1, comment="Old feedback"
+    )
+    for number in range(12):
+        author = get_user_model().objects.create_user(username=f"newer-{number}")
+        Review.objects.create(product=product, author=author, rating=5, comment="Newer")
+    client.force_login(customer)
+    first = client.get(product.get_absolute_url())
+    assert own not in first.context["reviews"]
+    assert first.context["own_review"] == own
+    opened = client.get(
+        reverse("products:review_edit", args=[product.slug, own.pk]),
+        {"location": "own"},
+        HTTP_HX_REQUEST="true",
+    )
+    assert "Old feedback" in opened.content.decode()
+    loaded = client.get(first.context["review_next_url"], HTTP_HX_REQUEST="true")
+    body = loaded.content.decode()
+    assert f'id="review-public-{own.pk}"' in body
+    assert 'id="your-review"' not in body
+    assert "outerHTML" in first.content.decode()
+    edited = client.post(
+        reverse("products:review_edit", args=[product.slug, own.pk]),
+        {"rating": "3", "comment": "Updated older feedback", "location": location},
+        HTTP_HX_REQUEST="true",
+    )
+    body = edited.content.decode()
+    assert body.count("Updated older feedback") == 2
+    assert f'id="review-own-{own.pk}"' in body
+    assert f'id="review-public-{own.pk}"' in body
+    assert "13 reviews" in body
+    assert 'id="review-list"' not in body
+    deleted = client.post(
+        reverse("products:review_delete", args=[product.slug, own.pk]),
+        {"location": location},
+        HTTP_HX_REQUEST="true",
+    )
+    body = deleted.content.decode()
+    assert f'id="review-public-{own.pk}" hx-swap-oob="delete"' in body
+    assert f'id="review-own-{own.pk}"' not in body
+    assert 'id="your-review"' in body
+    assert "12 reviews" in body
+
+
+def test_staff_own_review_does_not_gain_moderation_attribution(
+    client, customer, product
+):
+    customer.is_staff = True
+    customer.save(update_fields=["is_staff"])
+    review = Review.objects.create(
+        author=customer, product=product, rating=3, comment="Own"
+    )
+    client.force_login(customer)
+    response = client.post(
+        reverse("products:review_edit", args=[product.slug, review.pk]),
+        {"rating": "4", "comment": "Own revision"},
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 200
+    review.refresh_from_db()
+    assert review.staff_editor is None
+    assert review.staff_edited_at is None
+    assert "Edited by staff" not in response.content.decode()
+    assert response.content.decode().count("Own revision") == 2
+
+
+def test_review_cursor_rejects_tampering_and_other_products(
+    client, product, unavailable_product
+):
+    for number in range(11):
+        author = get_user_model().objects.create_user(username=f"cursor-{number}")
+        Review.objects.create(product=product, author=author, rating=4, comment="Saved")
+    first = client.get(product.get_absolute_url())
+    url = first.context["review_next_url"]
+    assert (
+        client.get(url.replace(product.slug, unavailable_product.slug)).status_code
+        == 404
+    )
+    assert (
+        client.get(product.get_absolute_url(), {"cursor": "invalid"}).status_code == 404
+    )
 
 
 @pytest.mark.parametrize(

@@ -5,6 +5,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import F
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views import View
 
 from .forms import ReviewForm
@@ -16,11 +17,11 @@ class ReviewView(LoginRequiredMixin, View):
     """Shared product scoping, author access, and enhanced responses."""
 
     def get_review(self, product, pk):
-        """Resolve a review within its product and require its author."""
+        """Resolve a review within its product for its author or staff."""
         review = get_object_or_404(
             Review.objects.select_related("author"), product=product, pk=pk
         )
-        if review.author_id != self.request.user.pk:
+        if review.author_id != self.request.user.pk and not self.request.user.is_staff:
             raise PermissionDenied
         return review
 
@@ -47,7 +48,9 @@ class ReviewView(LoginRequiredMixin, View):
             )
         return render(self.request, template, context)
 
-    def success(self, product, *, mutation, review=None, deleted_pk=None):
+    def success(
+        self, product, *, mutation, review=None, deleted_pk=None, deleted_author_id=None
+    ):
         """Synchronize affected copies without replacing the review list."""
         if self.request.headers.get("HX-Request") != "true":
             return HttpResponseRedirect(product.get_absolute_url() + "#reviews")
@@ -56,6 +59,8 @@ class ReviewView(LoginRequiredMixin, View):
             mutation=mutation,
             review=review,
             deleted_pk=deleted_pk,
+            update_own=(review.author_id if review is not None else deleted_author_id)
+            == self.request.user.pk,
             review_form=ReviewForm(auto_id="id_create_%s"),
         )
         response = render(
@@ -97,9 +102,15 @@ class ReviewEditView(ReviewView):
         )
         if not form.is_valid():
             return self.render_form(product, review=review, form=form)
-        # Posting time, author, and staff attribution survive customer edits.
+        attribution = {}
+        if request.user.is_staff and review.author_id != request.user.pk:
+            attribution = {
+                "staff_editor": request.user,
+                "staff_edited_at": timezone.now(),
+            }
+        # Posting time and author survive moderation; author edits retain attribution.
         Review.objects.filter(pk=review.pk).update(
-            **form.cleaned_data, revision=F("revision") + 1
+            **form.cleaned_data, **attribution, revision=F("revision") + 1
         )
         review.refresh_from_db()
         return self.success(product, mutation="edit", review=review)
@@ -133,5 +144,9 @@ class ReviewDeleteView(ReviewView):
 
     def post(self, request, slug, pk):
         product = get_object_or_404(Product, slug=slug)
-        self.get_review(product, pk).delete()
-        return self.success(product, mutation="delete", deleted_pk=pk)
+        review = self.get_review(product, pk)
+        author_id = review.author_id
+        review.delete()
+        return self.success(
+            product, mutation="delete", deleted_pk=pk, deleted_author_id=author_id
+        )

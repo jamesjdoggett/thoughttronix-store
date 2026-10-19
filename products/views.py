@@ -80,11 +80,24 @@ class ProductDetailView(DetailView):
     context_object_name = "product"
     queryset = Product.objects.select_related("category").prefetch_related("tags")
 
+    def get_template_names(self) -> list[str]:
+        """Return only the next batch for an enhanced loading request."""
+        if (
+            self.request.headers.get("HX-Request") == "true"
+            and "cursor" in self.request.GET
+        ):
+            return ["products/partials/_review_batch.html"]
+        return [self.template_name]
+
     def get_context_data(self, **kwargs):
         from wishlist.models import WishlistEntry
 
         context = super().get_context_data(**kwargs)
-        context.update(review_context(self.object, self.request.user))
+        context.update(
+            review_context(
+                self.object, self.request.user, self.request.GET.get("cursor")
+            )
+        )
         context["review_form"] = ReviewForm(auto_id="id_create_%s")
         context["is_saved"] = (
             self.request.user.is_authenticated

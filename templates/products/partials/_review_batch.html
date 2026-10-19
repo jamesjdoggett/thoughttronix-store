@@ -1,0 +1,7 @@
+{% for review in reviews %}
+  {% include "products/partials/_review_card.html" with location="public" %}
+{% endfor %}
+{% if review_next_url %}
+  <a id="review-more" href="{{ review_next_url }}" class="btn btn-outline"
+     hx-get="{{ review_next_url }}" hx-target="this" hx-swap="outerHTML" hx-disabled-elt="this">Load more</a>
+{% endif %}

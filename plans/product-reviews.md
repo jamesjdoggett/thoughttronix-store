@@ -2,7 +2,7 @@
 
 > Source PRD: [ThoughtTronix Product Reviews](../prd/product-reviews.md)
 >
-> Four-phase breakdown approved by the user on 2026-10-18. Phase 1 implemented and manually verified by the user on 2026-10-18; phases 2-4 remain unimplemented.
+> Four-phase breakdown approved by the user on 2026-10-18. Phases 1-2 implemented and manually verified by the user on 2026-10-18; phases 3-4 remain unimplemented.
 
 ## Architectural decisions
 
@@ -60,6 +60,8 @@
 
 ## Phase 2: Staff moderation and loading additional reviews
 
+**Status:** Complete. Full suite: 550 passed. Ruff lint/format, Django system and migration checks, and production CSS build passed. No new JavaScript or migrations. Prepared 25 qualifying purchaser reviews on local Calm Collar for browser checks. The user confirmed browser verification passed on 2026-10-18.
+
 **User stories:** 4, 12-19, 22-23 (11 distinct stories). Stories 4, 17, and 18 are newly completed; the others extend Phase 1 behavior to moderation and loaded batches.
 
 **Dependencies:** Phase 1: persisted reviews, customer CRUD, eligibility, synchronized displays, and ordinary-form fallbacks.
@@ -72,16 +74,16 @@
 
 ### Acceptance criteria
 
-- [ ] In the browser, staff edits another customer's review; readers see the customer's username, Verified purchaser, and Edited by staff. A later customer edit retains the staff label and internal latest-staff-edit attribution.
-- [ ] Staff can confirm or cancel deletion of another customer's review; confirmed deletion updates the public list and summary, and the author's next visit offers replacement when eligible.
-- [ ] A staff purchaser can create and manage their own review under ordinary author rules. Moderation cannot create for another account or bypass staff's own purchase requirement.
-- [ ] Tests verify staff versus nonstaff permissions, author preservation, staff attribution persistence, replacement after moderation, and full-page and partial responses. Browser-check moderation with HTMX enabled and disabled.
+- [x] In the browser, staff edits another customer's review; readers see the customer's username, Verified purchaser, and Edited by staff. A later customer edit retains the staff label and internal latest-staff-edit attribution.
+- [x] Staff can confirm or cancel deletion of another customer's review; confirmed deletion updates the public list and summary, and the author's next visit offers replacement when eligible.
+- [x] A staff purchaser can create and manage their own review under ordinary author rules. Moderation cannot create for another account or bypass staff's own purchase requirement.
+- [x] Tests verify staff versus nonstaff permissions, author preservation, staff attribution persistence, replacement after moderation, and full-page and partial responses. Browser-check moderation with HTMX enabled and disabled.
 
-- [ ] With more than twenty reviews, anonymously load 10, then 10, then the remainder; the control disappears at the end. All batches retain original newest-first order without duplicates.
-- [ ] In the browser, open an edit form, type a draft, then load more. Its inputs and page position remain intact. An author whose review is older than the first batch can manage it immediately in Your review.
-- [ ] Once the author's public copy is loaded, editing or deleting through either location synchronizes both; summary totals always include unloaded reviews.
-- [ ] Create or delete a review between loading batches; subsequent batches do not duplicate or skip surviving older reviews. Tests cover stable ordering ties and pagination boundaries as well as mutation synchronization.
-- [ ] With HTMX unavailable, a standard navigation control lets readers reach older reviews while preserving access to the summary and dedicated area; author mutation fallbacks remain usable.
+- [x] With more than twenty reviews, anonymously load 10, then 10, then the remainder; the control disappears at the end. All batches retain original newest-first order without duplicates.
+- [x] In the browser, open an edit form, type a draft, then load more. Its inputs and page position remain intact. An author whose review is older than the first batch can manage it immediately in Your review.
+- [x] Once the author's public copy is loaded, editing or deleting through either location synchronizes both; summary totals always include unloaded reviews.
+- [x] Create or delete a review between loading batches; subsequent batches do not duplicate or skip surviving older reviews. Tests cover stable ordering ties and pagination boundaries as well as mutation synchronization.
+- [x] With HTMX unavailable, a standard navigation control lets readers reach older reviews while preserving access to the summary and dedicated area; author mutation fallbacks remain usable.
 
 ---
 

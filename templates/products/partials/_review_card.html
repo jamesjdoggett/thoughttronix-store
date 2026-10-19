@@ -3,11 +3,12 @@
     <div class="flex flex-wrap items-center gap-2">
       <span class="font-semibold">{{ review.author.username }}</span>
       <span class="badge badge-success badge-outline">Verified purchaser</span>
+      {% if review.staff_edited_at %}<span class="badge badge-outline">Edited by staff</span>{% endif %}
       <time class="text-sm opacity-60" datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:"M j, Y" }}</time>
     </div>
     <p class="font-semibold text-primary">{{ review.rating }} out of 5 stars</p>
     <p class="break-words">{{ review.comment|linebreaksbr }}</p>
-    {% if user.pk == review.author_id %}
+    {% if user.pk == review.author_id or user.is_staff %}
       <div class="card-actions mt-2">
         <a class="btn btn-outline btn-sm" href="{% url 'products:review_edit' product.slug review.pk %}"
            hx-get="{% url 'products:review_edit' product.slug review.pk %}?location={{ location }}" hx-target="closest .review-copy" hx-swap="outerHTML">Edit</a>
