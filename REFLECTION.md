@@ -1,3 +1,29 @@
+## Product Reviews
+
+Question 1 — Review TDD:
+
+One behavior I used TDD for was making sure customers could only review products they purchased. The test `test_review_eligibility_requires_own_qualifying_purchase` in `products/test_reviews.py`, line 904, checks that customers have a qualifying order and that other accounts cannot leave reviews for their purchases.
+
+This was a good TDD candidate because the eligibility rules have clear expected results. The test originally failed, but passed after Codex implemented the purchase checks in `products/review_services.py`, line 17.
+
+Question 2 — Trace an authorization rule:
+
+Review deletion is handled by `ReviewDeleteView` in `products/review_views.py`, lines 237–246. The view requires users to be signed in and checks whether they are the original author or a staff member at line 71.
+
+If neither condition is met, Django raises `PermissionDenied`. The code checks authorization before showing the deletion confirmation and again before deleting the review. This prevents customers from deleting other people's reviews while allowing staff to moderate them.
+
+Question 3 — Trace one HTMX interaction:
+
+The Delete button in `templates/products/partials/_review_card.html`, line 16, uses `hx-get` to display a confirmation form. The form in `_review_confirmation.html`, line 7, then uses `hx-post` to submit to `/products/<slug>/reviews/<pk>/delete/`.
+
+The URL is defined in `products/urls.py`, line 31, and handled by `ReviewDeleteView` in `products/review_views.py`, line 242. Django returns `_review_updates.html`, which updates the review summary, the customer's review area, and removes the deleted review without reloading the page.
+
+Question 4 — One design decision from grill-me:
+
+One decision I made was allowing staff to moderate reviews directly on product pages instead of creating a separate back-office interface. I chose this because staff can see reviews alongside their products and use the existing editing and deletion controls.
+
+The tradeoff is that staff cannot manage all reviews from one central page, but it avoids creating another interface. This decision appears in `prd/product-reviews.md`, line 48, and `templates/products/partials/_review_card.html`, line 11.
+
 ## Account Security Center
 
 Question 1 — Review one phase:
